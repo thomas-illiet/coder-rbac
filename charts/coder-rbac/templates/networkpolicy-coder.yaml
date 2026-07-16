@@ -1,0 +1,24 @@
+{{- if .Values.networkPolicy.coderIngress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "coder-rbac.fullname" . }}-coder-ingress
+  namespace: {{ default .Release.Namespace .Values.networkPolicy.coderIngress.namespace }}
+  labels:
+    {{- include "coder-rbac.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    {{- toYaml .Values.networkPolicy.coderIngress.podSelector | nindent 4 }}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+          podSelector:
+            matchLabels:
+              {{- include "coder-rbac.selectorLabels" . | nindent 14 }}
+    {{- with .Values.networkPolicy.coderIngress.additionalIngress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

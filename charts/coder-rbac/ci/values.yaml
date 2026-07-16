@@ -1,0 +1,14 @@
+config:
+  upstreamURL: http://coder.coder.svc.cluster.local:80
+  publicURL: https://coder.example.com
+  wildcardAccessHost: "*.apps.example.com"
+  allowedUsernames:
+    - platform-admin
+ingress:
+  main:
+    host: coder.example.com
+    tls:
+      secretName: coder-tls
+  wildcard:
+    tls:
+      secretName: coder-wildcard-tls

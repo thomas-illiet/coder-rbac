@@ -1,0 +1,145 @@
+# Number of stateless proxy pods. Use at least two replicas for production
+# availability.
+replicaCount: 2
+
+# Container image settings. An empty tag uses the chart appVersion.
+image:
+  repository: ghcr.io/thomas-illiet/coder-rbac
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# References to Secrets used to pull the container image.
+imagePullSecrets: []
+# Optional overrides for generated Kubernetes resource names.
+nameOverride: ""
+fullnameOverride: ""
+
+# Service account used by the proxy pods.
+serviceAccount:
+  create: true
+  annotations: {}
+  # Leave empty to use the generated release name.
+  name: ""
+
+# Additional metadata applied to proxy pods.
+podAnnotations: {}
+podLabels: {}
+
+# Pod-level security settings.
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container-level security settings. The proxy does not require a writable root
+# filesystem, Linux capabilities, or privilege escalation.
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+
+# coder-rbac runtime configuration.
+config:
+  # Direct internal URL of coderd. Workspace pods must not be able to reach it.
+  upstreamURL: ""
+  # Public Coder URL served through coder-rbac, including the scheme.
+  publicURL: ""
+  # Application wildcard hostname in *.example.com form, without a scheme or port.
+  wildcardAccessHost: ""
+  # Additional internal hostnames accepted by the proxy. The chart automatically
+  # includes the generated Service short name and cluster-local DNS name.
+  internalHosts: []
+  # Canonical Coder usernames that bypass all workspace restrictions. Matching
+  # is exact and case-sensitive, so use the same username on every instance.
+  allowedUsernames: []
+  # Required prefix for the Coder version reported by /api/v2/buildinfo.
+  expectedVersionPrefix: "v2.35."
+  # Interval between compatibility checks after startup.
+  versionCheckInterval: 1m
+  # Timeout for Coder identity and policy-data API calls, not streamed traffic.
+  upstreamTimeout: 15s
+  # Graceful shutdown timeout for each HTTP server.
+  shutdownTimeout: 15s
+  # Maximum number of bytes read from an inspected policy request body.
+  maxInspectionBodyBytes: 1048576
+
+# ClusterIP Service and the three independent listener ports.
+service:
+  type: ClusterIP
+  proxyPort: 8080
+  healthPort: 8081
+  metricsPort: 9090
+
+# Public and application-wildcard Ingress resources.
+ingress:
+  main:
+    enabled: true
+    className: ""
+    annotations: {}
+    # Public hostname corresponding to config.publicURL.
+    host: ""
+    tls:
+      enabled: true
+      secretName: ""
+  wildcard:
+    enabled: true
+    className: ""
+    annotations: {}
+    # The host is taken from config.wildcardAccessHost.
+    tls:
+      enabled: true
+      secretName: ""
+
+# Fail-closed network boundaries. Kubernetes NetworkPolicies are additive; audit
+# other policies that select the same pods before relying on these defaults.
+networkPolicy:
+  # Restrict selected workspace pods to DNS, coder-rbac, and explicitly added
+  # destinations. Set namespace when workspaces run outside the release namespace.
+  workspaceEgress:
+    enabled: true
+    namespace: ""
+    podSelector:
+      matchExpressions:
+        - key: coder.com/workspace_id
+          operator: Exists
+    # Select the cluster DNS pods allowed on UDP and TCP port 53.
+    dns:
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    # Raw NetworkPolicy egress entries for Git, registries, package mirrors, and
+    # any other destinations required by workspaces.
+    additionalEgress: []
+  # Restrict selected coderd pods to coder-rbac and explicitly added sources.
+  coderIngress:
+    enabled: true
+    namespace: ""
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: coder
+    # Raw NetworkPolicy ingress entries for external provisioners, operators, or
+    # other trusted Coder components.
+    additionalIngress: []
+
+# Resource defaults for each proxy pod.
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# Standard Kubernetes scheduling controls.
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+
+# Must exceed config.shutdownTimeout to allow graceful termination.
+terminationGracePeriodSeconds: 30

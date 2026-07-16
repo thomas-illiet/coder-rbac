@@ -1,0 +1,11 @@
+coder-rbac is configured for {{ .Values.config.publicURL }}.
+
+Before exposing the deployment:
+1. Disable the direct Coder Ingress or LoadBalancer.
+2. Set CODER_ACCESS_URL to {{ .Values.config.publicURL }}.
+3. Set CODER_WILDCARD_ACCESS_URL to {{ .Values.config.wildcardAccessHost }}.
+4. Set coder.envUseClusterAccessURL=false in the official Coder chart.
+5. Inject CODER_URL=http://{{ include "coder-rbac.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.proxyPort }} into workspace containers.
+6. Audit all existing NetworkPolicies; Kubernetes policies are additive.
+
+WARNING: POST /api/v2/organizations/{organization}/members/{user}/workspaces is intentionally allowed and can bypass the main workspace-creation restriction on Coder 2.35.x.

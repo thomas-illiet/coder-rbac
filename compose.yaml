@@ -1,0 +1,109 @@
+name: coder-rbac-local
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: coder
+      POSTGRES_PASSWORD: coder
+      POSTGRES_DB: coder
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coder -d coder"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - control
+    restart: unless-stopped
+
+  coder:
+    image: ghcr.io/coder/coder:v2.35.2
+    group_add:
+      - "0"
+    environment:
+      CODER_PG_CONNECTION_URL: postgres://coder:coder@postgres:5432/coder?sslmode=disable
+      CODER_HTTP_ADDRESS: 0.0.0.0:3000
+      CODER_ACCESS_URL: http://coder.localhost:7080
+      CODER_WILDCARD_ACCESS_URL: "*.apps.localhost:7080"
+      CODER_REDIRECT_TO_ACCESS_URL: "false"
+      CODER_SECURE_AUTH_COOKIE: "false"
+      CODER_TELEMETRY_ENABLE: "false"
+      CODER_UPDATE_CHECK: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:3000/api/v2/buildinfo"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 10s
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - control
+    restart: unless-stopped
+
+  coder-rbac:
+    build:
+      context: .
+      args:
+        VERSION: local
+        COMMIT: compose
+        BUILD_DATE: local
+    environment:
+      CODER_RBAC_UPSTREAM_URL: http://coder:3000
+      CODER_RBAC_PUBLIC_URL: http://coder.localhost:7080
+      CODER_RBAC_WILDCARD_ACCESS_HOST: "*.apps.localhost"
+      CODER_RBAC_INTERNAL_HOSTS: coder-rbac,coder-rbac:8080,localhost,127.0.0.1
+      CODER_RBAC_ALLOWED_USERNAMES: ${CODER_RBAC_ALLOWED_USERNAMES:-${CODER_BOOTSTRAP_USERNAME:-admin}}
+      CODER_RBAC_EXPECTED_VERSION_PREFIX: v2.35.
+      CODER_RBAC_LISTEN_ADDRESS: :8080
+      CODER_RBAC_HEALTH_LISTEN_ADDRESS: :8081
+      CODER_RBAC_METRICS_LISTEN_ADDRESS: :9090
+      CODER_RBAC_VERSION_CHECK_INTERVAL: 15s
+    depends_on:
+      coder:
+        condition: service_healthy
+    ports:
+      - "7080:8080"
+      - "127.0.0.1:7081:8081"
+      - "127.0.0.1:7090:9090"
+    networks:
+      control: {}
+      workspace:
+        aliases:
+          - coder-rbac
+    restart: unless-stopped
+
+  bootstrap:
+    image: ghcr.io/coder/coder:v2.35.2
+    entrypoint: ["/bin/sh", "/bootstrap/bootstrap.sh"]
+    environment:
+      CODER_BOOTSTRAP_EMAIL: admin@example.com
+      CODER_BOOTSTRAP_USERNAME: ${CODER_BOOTSTRAP_USERNAME:-admin}
+      CODER_BOOTSTRAP_PASSWORD: CoderRbac123!
+      CODER_BOOTSTRAP_WORKSPACE: demo
+      CODER_RESTRICTED_EMAIL: user@example.com
+      CODER_RESTRICTED_USERNAME: user
+      CODER_RESTRICTED_PASSWORD: CoderUser123!
+    depends_on:
+      coder:
+        condition: service_healthy
+    volumes:
+      - ./dev/local/bootstrap.sh:/bootstrap/bootstrap.sh:ro
+      - ./dev/local/template:/template:ro
+    networks:
+      - control
+    restart: "no"
+
+volumes:
+  postgres-data:
+
+networks:
+  control:
+    name: coder-rbac-control
+  workspace:
+    name: coder-rbac-workspace

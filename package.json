@@ -1,0 +1,13 @@
+{
+  "name": "coder-rbac-quality",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "docs:lint": "markdownlint-cli2 README.md SECURITY.md \"docs/**/*.md\""
+  },
+  "devDependencies": {
+    "markdownlint-cli2": "0.23.0"
+  }
+}

@@ -1,0 +1,33 @@
+{{- if .Values.ingress.wildcard.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "coder-rbac.fullname" . }}-wildcard
+  labels:
+    {{- include "coder-rbac.labels" . | nindent 4 }}
+  {{- with .Values.ingress.wildcard.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.wildcard.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  rules:
+    - host: {{ required "config.wildcardAccessHost is required when wildcard ingress is enabled" .Values.config.wildcardAccessHost | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "coder-rbac.fullname" . }}
+                port:
+                  name: http
+  {{- if .Values.ingress.wildcard.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.config.wildcardAccessHost | quote }}
+      secretName: {{ required "ingress.wildcard.tls.secretName is required when TLS is enabled" .Values.ingress.wildcard.tls.secretName }}
+  {{- end }}
+{{- end }}
