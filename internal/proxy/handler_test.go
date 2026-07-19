@@ -29,6 +29,10 @@ func TestHandlerHostRoutingAndWildcardProtection(t *testing.T) {
 			_, _ = response.Write([]byte(`{"version":"v2.35.2"}`))
 			return
 		}
+		if request.URL.Path == "/api/v2/users/me" {
+			response.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 		_, _ = fmt.Fprintf(response, `{"host":%q,"path":%q,"forwarded_host":%q}`, request.Host, request.URL.Path, request.Header.Get("X-Forwarded-Host"))
 	}))
 	defer upstream.Close()
@@ -73,12 +77,113 @@ func TestHandlerHostRoutingAndWildcardProtection(t *testing.T) {
 	}
 }
 
+// TestHandlerEnforcesUserAdmissionAcrossHosts verifies access and administrator policy ordering.
+func TestHandlerEnforcesUserAdmissionAcrossHosts(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		switch request.URL.Path {
+		case "/api/v2/buildinfo":
+			_, _ = response.Write([]byte(`{"version":"v2.35.2"}`))
+		case "/api/v2/users/me":
+			switch request.Header.Get("Coder-Session-Token") {
+			case "admin-token":
+				_, _ = response.Write([]byte(`{"username":"admin"}`))
+			case "allowed-token":
+				_, _ = response.Write([]byte(`{"username":"developer"}`))
+			case "blocked-token":
+				_, _ = response.Write([]byte(`{"username":"blocked"}`))
+			case "failure-token":
+				response.WriteHeader(http.StatusInternalServerError)
+			default:
+				response.WriteHeader(http.StatusUnauthorized)
+			}
+		default:
+			_, _ = response.Write([]byte(`{"forwarded":true}`))
+		}
+	}))
+	defer upstream.Close()
+
+	upstreamURL, _ := url.Parse(upstream.URL)
+	client := coder.NewClient(upstreamURL, upstream.Client())
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	gate := versiongate.New(client, "v2.35.", time.Minute, logger)
+	if err := gate.Check(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	publicURL, _ := url.Parse("https://coder.example.com")
+	handler := NewHandler(
+		NewHostClassifier(publicURL, "*.apps.example.com", []string{"coder-rbac:8080"}),
+		NewPolicy(client, map[string]struct{}{"admin": {}}, map[string]struct{}{"developer": {}}, 1<<20),
+		gate,
+		newTestReverseProxy(upstreamURL),
+		logger,
+		NewMetrics(prometheus.NewRegistry()),
+	)
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	tests := []struct {
+		name   string
+		host   string
+		method string
+		path   string
+		token  string
+		status int
+		code   string
+	}{
+		{name: "anonymous login", host: "coder.example.com", method: http.MethodGet, path: "/login", status: http.StatusOK},
+		{name: "allowed main", host: "coder.example.com", method: http.MethodGet, path: "/dashboard", token: "allowed-token", status: http.StatusOK},
+		{name: "allowed remains restricted", host: "coder.example.com", method: http.MethodPatch, path: "/api/v2/workspaces/" + testWorkspaceID.String(), token: "allowed-token", status: http.StatusForbidden, code: "workspace_rename_forbidden"},
+		{name: "allowed cannot update password", host: "coder.example.com", method: http.MethodPut, path: "/api/v2/users/me/password", token: "allowed-token", status: http.StatusForbidden, code: "user_password_update_forbidden"},
+		{name: "allowed cannot update profile", host: "coder.example.com", method: http.MethodPut, path: "/api/v2/users/me/profile", token: "allowed-token", status: http.StatusForbidden, code: "user_profile_update_forbidden"},
+		{name: "admin bypasses policy", host: "coder.example.com", method: http.MethodPatch, path: "/api/v2/workspaces/" + testWorkspaceID.String(), token: "admin-token", status: http.StatusOK},
+		{name: "admin may reach profile update", host: "coder.example.com", method: http.MethodPut, path: "/api/v2/users/me/profile", token: "admin-token", status: http.StatusOK},
+		{name: "blocked main", host: "coder.example.com", method: http.MethodGet, path: "/dashboard", token: "blocked-token", status: http.StatusForbidden, code: "user_access_forbidden"},
+		{name: "blocked session may reopen login", host: "coder.example.com", method: http.MethodGet, path: "/login", token: "blocked-token", status: http.StatusOK},
+		{name: "blocked session may submit another login", host: "coder.example.com", method: http.MethodPost, path: "/api/v2/users/login", token: "blocked-token", status: http.StatusOK},
+		{name: "blocked session may load login assets", host: "coder.example.com", method: http.MethodGet, path: "/assets/index.js", token: "blocked-token", status: http.StatusOK},
+		{name: "blocked internal", host: "coder-rbac:8080", method: http.MethodGet, path: "/api/v2/workspaces", token: "blocked-token", status: http.StatusForbidden, code: "user_access_forbidden"},
+		{name: "allowed wildcard", host: "code--dev--alice.apps.example.com", method: http.MethodGet, path: "/", token: "allowed-token", status: http.StatusOK},
+		{name: "blocked wildcard", host: "code--dev--alice.apps.example.com", method: http.MethodGet, path: "/", token: "blocked-token", status: http.StatusForbidden, code: "user_access_forbidden"},
+		{name: "wildcard control path stays hidden", host: "code--dev--alice.apps.example.com", method: http.MethodGet, path: "/api/v2/users/me", token: "blocked-token", status: http.StatusNotFound},
+		{name: "identity failure", host: "coder.example.com", method: http.MethodGet, path: "/dashboard", token: "failure-token", status: http.StatusServiceUnavailable, code: "identity_unavailable"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			request, err := http.NewRequest(test.method, server.URL+test.path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			request.Host = test.host
+			if test.token != "" {
+				request.Header.Set("Coder-Session-Token", test.token)
+			}
+			response, err := server.Client().Do(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer response.Body.Close()
+			body, _ := io.ReadAll(response.Body)
+			if response.StatusCode != test.status {
+				t.Fatalf("status = %d, want %d; body=%s", response.StatusCode, test.status, body)
+			}
+			if test.code != "" && !strings.Contains(string(body), `"code":"`+test.code+`"`) {
+				t.Fatalf("body %q does not contain code %q", body, test.code)
+			}
+		})
+	}
+}
+
 // TestHandlerRelaysUpgradedConnections verifies upgraded connections pass through the proxy.
 func TestHandlerRelaysUpgradedConnections(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/api/v2/buildinfo" {
 			response.Header().Set("Content-Type", "application/json")
 			_, _ = response.Write([]byte(`{"version":"v2.35.2"}`))
+			return
+		}
+		if request.URL.Path == "/api/v2/users/me" {
+			response.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 		if !strings.EqualFold(request.Header.Get("Connection"), "upgrade") {
@@ -146,7 +251,7 @@ func TestHandlerFailsClosedWhenVersionGateIsUnready(t *testing.T) {
 	publicURL, _ := url.Parse("https://coder.example.com")
 	handler := NewHandler(
 		NewHostClassifier(publicURL, "*.apps.example.com", []string{"coder-rbac"}),
-		NewPolicy(client, nil, 1<<20),
+		NewPolicy(client, nil, nil, 1<<20),
 		gate,
 		newTestReverseProxy(upstreamURL),
 		logger,
@@ -175,7 +280,7 @@ func newReadyTestHandler(t *testing.T, upstream *httptest.Server) http.Handler {
 	reverseProxy := newTestReverseProxy(upstreamURL)
 	return NewHandler(
 		NewHostClassifier(publicURL, "*.apps.example.com", []string{"coder-rbac.coder.svc.cluster.local:8080"}),
-		NewPolicy(client, nil, 1<<20),
+		NewPolicy(client, nil, nil, 1<<20),
 		gate,
 		reverseProxy,
 		logger,

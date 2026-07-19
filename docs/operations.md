@@ -39,7 +39,7 @@ kubectl logs -n coder deployment/coder-rbac --since=1h
 kubectl get events -n coder --sort-by=.lastTimestamp
 ```
 
-## Change allowlisted usernames
+## Change administrator or allowed usernames
 
 Configuration does not reload dynamically. Change the Helm values and redeploy:
 
@@ -52,20 +52,21 @@ helm upgrade coder-rbac charts/coder-rbac \
 
 The Secret checksum in the pod template triggers a rollout.
 
-Before adding a username:
+Before adding a username to either list:
 
 - copy the canonical username exactly as Coder reports it;
 - confirm that it maps to the intended account and immutable user ID on every
   managed Coder instance;
+- decide whether the account needs standard access or an administrator exemption;
 - record the justification and intended duration;
 - obtain review;
 - protect the username from unreviewed rename or reuse;
 - schedule removal when the exemption is no longer needed.
 
-Matching is exact and case-sensitive. A username rename removes the exemption;
-reuse grants it to the replacement account. The same configuration is portable
-only when every Coder instance assigns each listed username to the intended
-principal.
+Matching is exact and case-sensitive. A username rename removes access or the
+exemption; reuse grants the configured capability to the replacement account.
+The same configuration is portable only when every Coder instance assigns each
+listed username to the intended principal.
 
 ## Change the Coder version
 
@@ -90,7 +91,7 @@ Likely causes include:
 - a missing required variable;
 - a URL containing a path, query, or credentials;
 - a wildcard containing a port;
-- a legacy ID-based allowlist setting;
+- a legacy ID-based administrator setting;
 - listeners sharing a port;
 - unreachable Coder;
 - an incompatible Coder version.
@@ -144,6 +145,14 @@ data required to decide. Check cookies or tokens, Coder permissions, and the
 auxiliary endpoint named in server logs. A malformed, oversized, or multi-value
 Coder JSON response also fails closed.
 
+### The proxy returns `403 user_access_forbidden`
+
+Coder authenticated the request, but the canonical username is absent from
+both `CODER_RBAC_ADMIN_USERNAMES` and `CODER_RBAC_ALLOWED_USERNAMES`. Check the
+exact case-sensitive username with `coder users show me`, update the intended
+list, and redeploy. Do not add a standard user to the administrator list merely
+to restore access.
+
 ### The proxy returns `502 upstream_unavailable`
 
 The reverse proxy could not contact Coder or lost the connection. Check the
@@ -157,15 +166,15 @@ Treat this as a potential security incident:
 2. inspect reachable networks and DNS;
 3. find any direct Coder Ingress or Service;
 4. inspect every additive NetworkPolicy;
-5. check whether the canonical username is allowlisted;
+5. check whether the canonical username is configured as an administrator;
 6. identify the actual API route used;
 7. determine whether it is the intentionally allowed deprecated creation route.
 
 ## Capacity and performance
 
-Unprotected routes are forwarded without an identity lookup. Protected routes
-add at least one `/users/me` request and parameterized builds can require several
-Coder data reads.
+Every request outside native authentication and public assets adds one
+`/users/me` admission lookup. Parameterized workspace builds for allowed
+standard users can require several additional Coder reads.
 
 Capacity planning should include:
 
@@ -184,7 +193,7 @@ long-lived connections separately.
 `coder-rbac` has no persistent state. Back up:
 
 - Helm values and configuration manifests;
-- allowlisted-username history and username-to-user-ID mappings;
+- administrator and allowed-username history and username-to-user-ID mappings;
 - Ingress and NetworkPolicy rules;
 - dashboards and alerts;
 - the Coder database and configuration according to Coder procedures.
@@ -198,5 +207,5 @@ kubectl rollout status deployment/coder-rbac -n coder
 curl -fsS http://coder-rbac:8081/readyz
 ```
 
-Then retest at least creation, renaming, TTL, the internal CLI, direct Coder
-isolation, and a wildcard application.
+Then retest at least password and profile updates, workspace creation, renaming,
+TTL, the internal CLI, direct Coder isolation, and a wildcard application.

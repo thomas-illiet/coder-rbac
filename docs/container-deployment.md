@@ -31,7 +31,8 @@ docker run --rm \
   -e CODER_RBAC_PUBLIC_URL=http://coder.localhost:8080 \
   -e 'CODER_RBAC_WILDCARD_ACCESS_HOST=*.apps.localhost' \
   -e CODER_RBAC_INTERNAL_HOSTS=coder-rbac \
-  -e CODER_RBAC_ALLOWED_USERNAMES=platform-admin \
+  -e CODER_RBAC_ADMIN_USERNAMES=platform-admin \
+  -e CODER_RBAC_ALLOWED_USERNAMES=developer \
   -e CODER_RBAC_EXPECTED_VERSION_PREFIX=v2.35. \
   registry.example.com/platform/coder-rbac:v0.1.0
 ```

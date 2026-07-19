@@ -68,9 +68,9 @@ The suite covers:
 - encoded-path normalization and wildcard isolation;
 - HTTP and WebSocket upgrades;
 - fail-closed version gating and Coder response decoding;
-- static routes, dormancy, and build transitions;
+- static user/workspace routes, dormancy, and build transitions;
 - persistent and ephemeral parameters and presets;
-- allowlisted-username behavior and identity failures;
+- administrator bypass, standard-user admission, access denial, and identity failures;
 - bounded Prometheus labels.
 
 ## Add a protected route
@@ -79,7 +79,7 @@ The suite covers:
 2. Match the method, segment count, and fixed segments explicitly.
 3. Choose a static decision or a focused inspector.
 4. Use a stable rejection code.
-5. Test allowed, blocked, allowlisted-username, and encoded-path cases.
+5. Test administrators, allowed users, denied users, and encoded-path cases.
 6. Update the matrix in [policy.md](policy.md).
 7. Validate the route through the Coder CLI when workspaces use it.
 

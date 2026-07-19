@@ -40,8 +40,9 @@ The `bootstrap` service must finish with `Exited (0)`. It:
 
 1. waits for Coder;
 2. creates the first administrator when necessary;
-3. pushes the `docker-local` template;
-4. creates or updates the `demo` workspace.
+3. creates the allowed and blocked validation users;
+4. pushes the `docker-local` template;
+5. creates or updates the `demo` workspace.
 
 ## Access
 
@@ -49,12 +50,16 @@ The `bootstrap` service must finish with `Exited (0)`. It:
 - Prometheus: [http://127.0.0.1:7090/metrics](http://127.0.0.1:7090/metrics)
 - Administrator email: `admin@example.com`
 - Administrator password: `CoderRbac123!`
-- Allowlisted administrator username: `admin`
-- Restricted validation account: `user@example.com` / `CoderUser123!`
+- Administrator username: `admin`
+- Allowed restricted account: `user@example.com` / `CoderUser123!`
+- Blocked account: `blocked@example.com` / `CoderBlocked123!`
 
-These credentials are only for the local lab. The `admin` account is allowlisted
-and can create, delete, and configure workspaces. Automated restriction checks
-use the `user` account, which remains subject to the complete policy.
+These credentials are only for the local lab. The `admin` account is configured
+in `CODER_RBAC_ADMIN_USERNAMES` and can create, delete, and configure
+workspaces. The `user` account is admitted through
+`CODER_RBAC_ALLOWED_USERNAMES` and remains subject to the complete workspace
+policy. The `blocked` account can authenticate natively with Coder but every
+subsequent authenticated request through the proxy is denied.
 
 The template normally exposes its wildcard application at:
 
@@ -71,16 +76,23 @@ http://wildcard--demo--admin.apps.localhost:7080
 The script checks:
 
 - login through the proxy;
+- an unlisted authenticated user rejected with `403 user_access_forbidden`;
+- a denied browser session can submit a new allowed-user login;
 - workspace creation rejected with `403`;
 - renaming rejected with `403`;
 - TTL changes rejected with `403`;
+- password and profile updates rejected for the allowed standard user;
+- password and profile APIs still reachable by the administrator;
 - the deprecated creation route remains unblocked;
 - the workspace is absent from the control network;
 - the workspace cannot resolve `coder` directly;
 - the workspace has `CODER_URL=http://coder-rbac:8080`;
 - `coder list` works from inside the workspace;
+- the CLI identity is resolved as `user` and its password/profile API requests
+  are rejected from inside the workspace;
 - `coder rename` is rejected through the internal CLI;
 - a real wildcard application is reachable;
+- the unlisted user is rejected on the wildcard application;
 - wildcard API access is hidden with `404`;
 - an unknown host is rejected with `421`;
 - coder-rbac metrics exist only on the dedicated listener.
@@ -92,10 +104,14 @@ Optional script variables are:
 | `CODER_RBAC_LOCAL_URL` | `http://coder.localhost:7080` |
 | `CODER_RBAC_LOCAL_METRICS_URL` | `http://127.0.0.1:7090/metrics` |
 | `CODER_RBAC_LOCAL_WILDCARD_URL` | Calculated from the Coder application |
-| `CODER_RBAC_ALLOWED_USERNAMES` | Value of `CODER_BOOTSTRAP_USERNAME`, normally `admin` |
+| `CODER_RBAC_ADMIN_USERNAMES` | Value of `CODER_BOOTSTRAP_USERNAME`, normally `admin` |
+| `CODER_RBAC_ALLOWED_USERNAMES` | Value of `CODER_RESTRICTED_USERNAME`, normally `user` |
 | `CODER_BOOTSTRAP_EMAIL` | `admin@example.com` |
 | `CODER_BOOTSTRAP_USERNAME` | `admin` |
 | `CODER_BOOTSTRAP_PASSWORD` | `CoderRbac123!` |
+| `CODER_BLOCKED_EMAIL` | `blocked@example.com` |
+| `CODER_BLOCKED_USERNAME` | `blocked` |
+| `CODER_BLOCKED_PASSWORD` | `CoderBlocked123!` |
 
 ## Network isolation
 
@@ -117,7 +133,7 @@ This command must fail.
 
 ## Manual UI tests
 
-After signing in:
+After signing in as `user@example.com`:
 
 1. open the `demo` workspace;
 2. open the `Wildcard validation` application;
@@ -127,6 +143,10 @@ After signing in:
 6. verify that changing an established persistent or ephemeral parameter is
    rejected;
 7. verify that an upgrade without a persistent-schema or value change works.
+
+Then sign in as `blocked@example.com` and verify that the native login completes
+but the first authenticated application request returns
+`403 user_access_forbidden`.
 
 Blocked actions must receive a policy response, not an HTML redirect generated
 by the proxy.

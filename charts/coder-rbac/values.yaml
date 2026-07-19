@@ -51,8 +51,11 @@ config:
   # Additional internal hostnames accepted by the proxy. The chart automatically
   # includes the generated Service short name and cluster-local DNS name.
   internalHosts: []
-  # Canonical Coder usernames that bypass all workspace restrictions. Matching
-  # is exact and case-sensitive, so use the same username on every instance.
+  # Canonical Coder usernames that may access Coder and bypass all workspace
+  # restrictions. Administrators are implicitly admitted without duplication.
+  adminUsernames: []
+  # Canonical standard-user names that may access Coder but remain subject to
+  # workspace restrictions. Matching is exact and case-sensitive for both lists.
   allowedUsernames: []
   # Required prefix for the Coder version reported by /api/v2/buildinfo.
   expectedVersionPrefix: "v2.35."

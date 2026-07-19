@@ -15,6 +15,8 @@ const (
 	routeWorkspaceSetting
 	routeDormancy
 	routeWorkspaceBuild
+	routeUserPassword
+	routeUserProfile
 )
 
 // routeMatch contains the matched rule and any workspace identifier captured from the path.
@@ -31,6 +33,14 @@ func classifyRoute(method, normalizedPath string) routeMatch {
 	}
 	if method == http.MethodPost && len(segments) == 5 && segments[2] == "users" && segments[4] == "workspaces" {
 		return routeMatch{kind: routeCreateWorkspace}
+	}
+	if method == http.MethodPut && len(segments) == 5 && segments[2] == "users" {
+		switch segments[4] {
+		case "password":
+			return routeMatch{kind: routeUserPassword}
+		case "profile":
+			return routeMatch{kind: routeUserProfile}
+		}
 	}
 	if len(segments) == 4 && segments[2] == "workspaces" && method == http.MethodPatch {
 		return routeMatch{kind: routeRenameWorkspace}

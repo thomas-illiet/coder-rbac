@@ -21,6 +21,7 @@ Every deployment must satisfy all of these conditions:
 6. Health and metrics listeners are not exposed as public Coder endpoints.
 7. Long-lived HTTP upgrades and the original `Host` header reach the proxy
    unchanged.
+8. Administrator and allowed-user lists contain the intended canonical usernames.
 
 ## Production prerequisites
 
@@ -39,12 +40,12 @@ Before deployment, prepare:
 After any deployment or configuration change:
 
 1. confirm `/healthz`, `/readyz`, and the version-ready metric;
-2. test browser login, navigation, an agent, a terminal, and a wildcard
-   application;
-3. verify that start, stop, wake, and compatible upgrades still work;
-4. verify that creation, deletion, renaming, lifecycle settings, and parameter
-   changes are rejected for a standard user;
-5. test from a real workspace that its CLI works through `coder-rbac` and a
+2. test browser login for an administrator, an allowed user, and a denied user;
+3. test navigation, an agent, a terminal, and a wildcard application;
+4. verify that start, stop, wake, and compatible upgrades still work;
+5. verify that password, profile, workspace creation, deletion, renaming,
+   lifecycle settings, and parameter changes are rejected for a standard user;
+6. test from a real workspace that its CLI works through `coder-rbac` and a
    direct `coderd` request fails at the network layer.
 
 The last test is essential. Static configuration alone does not prove that the

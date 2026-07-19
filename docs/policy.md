@@ -9,15 +9,37 @@ The workspace policy applies to requests received on the configured public host
 or a declared internal host. Application wildcard hosts use a separate policy
 that hides control-plane paths.
 
-`CODER_RBAC_ALLOWED_USERNAMES` contains a global allowlist of canonical Coder
-usernames. Users in this allowlist bypass every workspace restriction described
-below. Matching is exact and case-sensitive against the `username` returned by
-Coder; UUIDs and email addresses are not accepted.
+`CODER_RBAC_ADMIN_USERNAMES` contains administrators who are admitted and bypass
+every workspace restriction below. `CODER_RBAC_ALLOWED_USERNAMES` contains
+standard users who are admitted but remain subject to the policy. Matching is
+exact and case-sensitive against Coder's canonical `username`; UUIDs and email
+addresses are not accepted. Any other authenticated username receives
+`403 user_access_forbidden` on main, internal, and application wildcard hosts.
+
+## Access admission
+
+Coder remains the authentication authority. The proxy resolves the request's
+canonical user through `/api/v2/users/me` before forwarding:
+
+- an administrator or allowed user is admitted;
+- any other resolved username receives `403 user_access_forbidden`;
+- a Coder `401` or `403` means no user identity was resolved, so the original
+  request is forwarded for native login, anonymous, agent, or service handling;
+- any other identity failure receives `503 identity_unavailable`.
+
+Native password or SSO authentication can therefore complete before the next
+authenticated request is denied. The proxy does not issue or revoke Coder
+sessions. Wildcard control-plane paths remain hidden with `404` before admission
+is evaluated. Main and internal hosts keep the native login, logout, password
+reset, OAuth/OIDC, OTP, authentication-method, and public `/assets` routes
+reachable so a denied browser session can switch accounts.
 
 ## Operation matrix
 
-| Operation | Method and route | Standard user | Allowlisted username |
+| Operation | Method and route | Allowed standard user | Administrator |
 | --- | --- | --- | --- |
+| Change a user password | `PUT /api/v2/users/{user}/password` | Blocked | Allowed |
+| Change a user profile | `PUT /api/v2/users/{user}/profile` | Blocked | Allowed |
 | Create a workspace | `POST /api/v2/users/{user}/workspaces` | Blocked | Allowed |
 | Deprecated creation route | `POST /api/v2/organizations/{organization}/members/{user}/workspaces` | **Intentionally allowed** | Allowed |
 | Rename or modify a workspace | `PATCH /api/v2/workspaces/{workspace}` | Blocked | Allowed |
@@ -36,6 +58,11 @@ Coder; UUIDs and email addresses are not accepted.
 
 The entire workspace `PATCH` route is blocked. This prevents renaming and also
 fails closed if Coder adds another mutation to that route.
+
+Password and profile restrictions apply to every `{user}` representation,
+including `me`, usernames, and UUIDs. Profile updates cover the username,
+display name, and avatar URL fields accepted by Coder. Reads, appearance, and
+preference settings remain available.
 
 ## Builds and transitions
 
@@ -132,6 +159,9 @@ Responses set `Content-Type: application/json; charset=utf-8` and
 | `400` | `invalid_workspace` | Invalid workspace UUID |
 | `400` | `invalid_template_preset` | Preset is absent from the target version |
 | `401` or `403` | `authentication_required` | Coder rejects the supplied identity |
+| `403` | `user_access_forbidden` | Authenticated username is in neither configured list |
+| `403` | `user_password_update_forbidden` | User password update |
+| `403` | `user_profile_update_forbidden` | Username, display name, or avatar update |
 | `403` | `workspace_creation_forbidden` | Primary creation route |
 | `403` | `workspace_rename_forbidden` | Workspace `PATCH` route |
 | `403` | `workspace_settings_forbidden` | Autostart, updates, deadline, TTL, or state route |

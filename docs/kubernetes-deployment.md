@@ -29,8 +29,10 @@ config:
   publicURL: https://coder.example.com
   wildcardAccessHost: "*.apps.example.com"
   expectedVersionPrefix: "v2.35."
-  allowedUsernames:
+  adminUsernames:
     - platform-admin
+  allowedUsernames:
+    - developer
 
 service:
   type: ClusterIP

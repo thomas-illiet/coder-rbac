@@ -40,12 +40,13 @@ check and does not prove that two patch releases have identical API contracts.
 The gate prevents obvious drift but does not replace tests against the deployed
 version.
 
-## Global username allowlist
+## Global username lists
 
-The allowlist:
+The administrator and allowed-user lists:
 
 - applies across all organizations;
-- exempts users from every restriction;
+- admit users globally across all proxy hosts;
+- let only administrators bypass every workspace restriction;
 - cannot grant exemptions per operation;
 - has no expiration time;
 - accepts only canonical Coder usernames;
@@ -56,9 +57,9 @@ roles.
 
 Matching is exact and case-sensitive. Usernames make the same policy
 configuration portable across Coder instances, but they are mutable and can
-identify different accounts on different instances. Renaming an allowlisted
-user removes the exemption. Reusing an allowlisted username grants the
-exemption to the replacement account, so every deployment must govern username
+identify different accounts on different instances. Renaming a configured user
+removes access or the exemption. Reusing that username grants the same
+capability to the replacement account, so every deployment must govern username
 assignment and audit its username-to-user-ID mapping.
 
 ## No independent authentication
@@ -66,8 +67,11 @@ assignment and audit its username-to-user-ID mapping.
 `coder-rbac` depends entirely on Coder cookies and tokens. It does not validate
 their signatures locally or issue sessions.
 
-Unavailable identity or policy-data endpoints cause fail-closed rejections that
-can affect protected operations.
+Every request outside native authentication and public assets requires an
+auxiliary identity lookup. Non-authentication lookup failures therefore cause
+fail-closed rejections across UI, API, CLI, agent, and application traffic. A
+native Coder `401` or `403` is treated as an unresolved user identity and
+forwarded so anonymous and non-user flows remain available.
 
 ## Latest-build dependency
 
@@ -105,7 +109,7 @@ fixed 4 MiB limit. Oversized, malformed, or multi-value responses fail closed.
 - The chart provides no `ServiceMonitor`.
 - `outcome="forwarded"` does not represent Coder's final response status.
 - User, workspace, path, and raw-host labels are omitted to bound cardinality.
-- Operations from an allowlisted user are not reported as rejections because they
+- Operations from an administrator are not reported as rejections because they
   are forwarded.
 
 ## NetworkPolicies

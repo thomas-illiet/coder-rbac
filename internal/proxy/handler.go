@@ -61,8 +61,20 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, request *http.Request)
 			http.NotFound(response, request)
 			return
 		}
-	case HostMain, HostInternal:
-		decision := h.policy.Evaluate(request.Context(), request, normalizedPath)
+	}
+	if (kind == HostMain || kind == HostInternal) && admissionExemptPath(request.Method, normalizedPath) {
+		outcome = "forwarded"
+		h.upstream.ServeHTTP(response, request)
+		return
+	}
+
+	access, decision := h.policy.Authorize(request.Context(), request)
+	if decision.Blocked() {
+		h.reject(response, decision)
+		return
+	}
+	if kind == HostMain || kind == HostInternal {
+		decision = h.policy.Evaluate(request.Context(), request, normalizedPath, access)
 		if decision.Blocked() {
 			h.reject(response, decision)
 			return

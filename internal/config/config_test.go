@@ -13,7 +13,8 @@ func TestLoadEnvironmentAndFlagPrecedence(t *testing.T) {
 	t.Setenv("CODER_RBAC_PUBLIC_URL", "https://coder.example.com")
 	t.Setenv("CODER_RBAC_WILDCARD_ACCESS_HOST", "*.apps.example.com")
 	t.Setenv("CODER_RBAC_INTERNAL_HOSTS", "coder-rbac,coder-rbac.ns.svc.cluster.local")
-	t.Setenv("CODER_RBAC_ALLOWED_USERNAMES", "platform-admin, automation, platform-admin")
+	t.Setenv("CODER_RBAC_ADMIN_USERNAMES", "platform-admin, automation, platform-admin")
+	t.Setenv("CODER_RBAC_ALLOWED_USERNAMES", "developer, developer")
 	t.Setenv("CODER_RBAC_EXPECTED_VERSION_PREFIX", "v2.35.")
 	t.Setenv("CODER_RBAC_UPSTREAM_TIMEOUT", "7s")
 	t.Setenv("CODER_RBAC_METRICS_LISTEN_ADDRESS", "127.0.0.1:9191")
@@ -38,13 +39,16 @@ func TestLoadEnvironmentAndFlagPrecedence(t *testing.T) {
 	if got, want := cfg.PublicURL.String(), "https://flag.example.com"; got != want {
 		t.Fatalf("public URL = %q, want %q", got, want)
 	}
-	if len(cfg.AllowedUsernames) != 2 {
-		t.Fatalf("allowed usernames = %d, want 2", len(cfg.AllowedUsernames))
+	if len(cfg.AdminUsernames) != 2 {
+		t.Fatalf("admin usernames = %d, want 2", len(cfg.AdminUsernames))
 	}
 	for _, username := range []string{"platform-admin", "automation"} {
-		if _, ok := cfg.AllowedUsernames[username]; !ok {
-			t.Errorf("allowed usernames do not contain %q", username)
+		if _, ok := cfg.AdminUsernames[username]; !ok {
+			t.Errorf("admin usernames do not contain %q", username)
 		}
+	}
+	if _, ok := cfg.AllowedUsernames["developer"]; !ok || len(cfg.AllowedUsernames) != 1 {
+		t.Errorf("allowed usernames = %#v, want developer", cfg.AllowedUsernames)
 	}
 	if cfg.UpstreamTimeout != 7*time.Second {
 		t.Fatalf("upstream timeout = %s, want 7s", cfg.UpstreamTimeout)
@@ -69,7 +73,7 @@ func TestLoadRejectsLegacyAllowedUserIDs(t *testing.T) {
 	v.Set("wildcard-access-host", "*.apps.example.com")
 	v.Set("internal-hosts", "coder-rbac")
 	v.Set("expected-version-prefix", "v2.35.")
-	if _, err := Load(v); err == nil || err.Error() != "CODER_RBAC_ALLOWED_USER_IDS is no longer supported; use CODER_RBAC_ALLOWED_USERNAMES" {
+	if _, err := Load(v); err == nil || err.Error() != "CODER_RBAC_ALLOWED_USER_IDS is no longer supported; use CODER_RBAC_ADMIN_USERNAMES" {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -78,6 +82,9 @@ func TestLoadRejectsLegacyAllowedUserIDs(t *testing.T) {
 func TestRegisterFlagsUsesSharedDefaults(t *testing.T) {
 	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
 	RegisterFlags(flags)
+	if flags.Lookup("admin-usernames") == nil {
+		t.Fatal("admin-usernames flag is not registered")
+	}
 	if flags.Lookup("allowed-usernames") == nil {
 		t.Fatal("allowed-usernames flag is not registered")
 	}

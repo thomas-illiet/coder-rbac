@@ -3,8 +3,9 @@
 ## Purpose
 
 `coder-rbac` is a transparent HTTP reverse proxy between clients and `coderd`.
-It preserves Coder authentication while denying selected workspace-management
-operations for users who are not in the configured username allowlist.
+It preserves Coder authentication, rejects authenticated usernames outside the
+configured access lists, and denies selected workspace-management operations
+for admitted non-administrators.
 
 The process exposes three independent listeners:
 
@@ -30,7 +31,8 @@ flowchart LR
 
     Proxy --> Gate["Coder 2.35.x version gate"]
     Gate --> Host["Host classification"]
-    Host --> Policy["Path normalization and policy"]
+    Host --> Admission["User admission"]
+    Admission --> Policy["Workspace policy"]
     Policy --> Coder["coderd"]
     Coder --> Database["PostgreSQL"]
 
@@ -43,8 +45,11 @@ flowchart LR
 ### Main public URL
 
 The main Ingress sends the URL configured by `CODER_RBAC_PUBLIC_URL` to the
-`coder-rbac` Service. Protected routes pass through policy evaluation. Other
-routes are forwarded without an additional `/api/v2/users/me` request.
+`coder-rbac` Service. Native authentication and public asset routes remain
+reachable so a denied session can switch accounts. Every other request is
+checked for a Coder user identity. Anonymous requests are forwarded so Coder
+can serve its login flow. Verified users must be in the administrator or
+allowed list before forwarding.
 
 ### Application wildcard
 
@@ -58,7 +63,8 @@ The following paths are hidden on wildcard hosts before they reach Coder:
 - `/cli-auth` and its descendants;
 - `/setup` and its descendants.
 
-They receive `404 Not Found`. Other paths are forwarded to Coder.
+They receive `404 Not Found`. Other paths use the same admission check before
+they are forwarded to Coder.
 
 ### Workspaces and internal CLI traffic
 
@@ -92,18 +98,28 @@ sequenceDiagram
             Proxy-->>Client: 421 unknown_host
         else Wildcard control path
             Proxy-->>Client: 404
-        else Protected route
+        else Main, internal, or application request
             Proxy->>API: GET /api/v2/users/me
-            API-->>Proxy: Canonical username
-            alt Username is in the allowlist
-                Proxy->>API: Forward request
-            else Inspection is required
-                Proxy->>API: Read workspace, build, schema, or preset
-                API-->>Proxy: Policy data
-                Proxy->>Proxy: Make a fail-closed decision
+            alt Request is anonymous or a non-user service flow
+                API-->>Proxy: 401 or 403
+                Proxy->>API: Forward request for native Coder handling
+            else Identity lookup fails
+                Proxy-->>Client: 503 identity_unavailable
+            else Username is not configured
+                API-->>Proxy: Canonical username
+                Proxy-->>Client: 403 user_access_forbidden
+            else Username is an administrator
+                API-->>Proxy: Canonical username
+                Proxy->>API: Forward request without workspace restrictions
+            else Username is an allowed standard user
+                alt Workspace route requires policy data
+                    Proxy->>API: Read workspace, build, schema, or preset
+                    API-->>Proxy: Policy data
+                    Proxy->>Proxy: Make a fail-closed decision
+                else Unrestricted route
+                    Proxy->>API: Forward request
+                end
             end
-        else Unprotected route
-            Proxy->>API: Forward directly
         end
     end
 ```
@@ -114,11 +130,13 @@ The processing order is:
 2. repeatedly decode and normalize the path;
 3. classify `Host` as `main`, `internal`, `wildcard`, or `unknown`;
 4. hide control-plane paths on wildcard hosts;
-5. classify the method and route on main and internal hosts;
-6. identify the user only for a protected route;
-7. apply the allowlisted-username exemption, when present;
-8. inspect JSON and load additional Coder data when required;
-9. forward the request through `httputil.ReverseProxy`.
+5. forward native authentication and public asset routes on main and internal hosts;
+6. resolve every other request identity through `/api/v2/users/me`;
+7. forward anonymous or non-user service traffic for native Coder handling;
+8. reject authenticated usernames absent from both access lists;
+9. apply the administrator exemption or the standard-user workspace policy;
+10. inspect JSON and load additional Coder data when required;
+11. forward the request through `httputil.ReverseProxy`.
 
 ## HTTP reverse proxy
 
@@ -145,19 +163,23 @@ start with `CODER_RBAC_EXPECTED_VERSION_PREFIX`, such as `v2.35.`.
 
 ## Authentication
 
-The proxy has no user database. For a protected route, it calls
-`/api/v2/users/me` and forwards only these authentication headers:
+The proxy has no user database. Outside the native-authentication and public
+asset routes, it calls `/api/v2/users/me` and forwards only these authentication
+headers:
 
 - `Authorization`;
 - `Coder-Session-Token`;
 - `Cookie`.
 
-Coder `401` and `403` responses become an authentication-required rejection.
-Any other identity lookup error fails closed with `503`.
+Coder `401` and `403` responses mean no user identity was resolved. The original
+request is forwarded so login, agent, and other native Coder flows continue;
+protected workspace mutations still receive `authentication_required`. Any
+other identity lookup error fails closed with `503`.
 
 Username matching is exact and case-sensitive against the canonical `username`
-returned by Coder. The same configuration is portable across Coder instances
-only when that username maps to the intended account on every instance.
+returned by Coder. Administrators are the union's privileged subset; allowed
+users remain restricted. The same configuration is portable across Coder
+instances only when each username maps to the intended account.
 
 ## Network boundaries
 

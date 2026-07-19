@@ -30,35 +30,57 @@ type policyClient interface {
 	TemplateVersionPresets(context.Context, *http.Request, uuid.UUID) ([]coder.Preset, error)
 }
 
-// Policy evaluates restricted Coder operations for users outside the allowlist.
+// UserAccess contains the verified user attributes needed by workspace policy checks.
+type UserAccess struct {
+	authenticated        bool
+	admin                bool
+	authenticationStatus int
+}
+
+// Policy evaluates Coder access and restricted workspace operations.
 type Policy struct {
 	client           policyClient
+	adminUsernames   map[string]struct{}
 	allowedUsernames map[string]struct{}
 	maxRequestBytes  int64
 }
 
-// NewPolicy creates a policy evaluator with allowed usernames and an inspection limit.
-func NewPolicy(client policyClient, allowedUsernames map[string]struct{}, maxRequestBytes int64) *Policy {
-	return &Policy{client: client, allowedUsernames: allowedUsernames, maxRequestBytes: maxRequestBytes}
+// NewPolicy creates a policy evaluator with administrator and access lists.
+func NewPolicy(client policyClient, adminUsernames, allowedUsernames map[string]struct{}, maxRequestBytes int64) *Policy {
+	return &Policy{client: client, adminUsernames: adminUsernames, allowedUsernames: allowedUsernames, maxRequestBytes: maxRequestBytes}
 }
 
-// Evaluate returns the decision for an authenticated request and normalized path.
-func (p *Policy) Evaluate(ctx context.Context, request *http.Request, normalizedPath string) Decision {
-	route := classifyRoute(request.Method, normalizedPath)
-	if route.kind == routeAllowed {
-		return Decision{}
-	}
-
+// Authorize verifies that an authenticated Coder user may access the application.
+func (p *Policy) Authorize(ctx context.Context, request *http.Request) (UserAccess, Decision) {
 	user, err := p.client.CurrentUser(ctx, request)
 	if err != nil {
 		var apiErr *coder.APIError
 		if errors.As(err, &apiErr) && (apiErr.StatusCode == http.StatusUnauthorized || apiErr.StatusCode == http.StatusForbidden) {
-			return Decision{Status: apiErr.StatusCode, Code: "authentication_required", Message: "Coder authentication is required."}
+			return UserAccess{authenticationStatus: apiErr.StatusCode}, Decision{}
 		}
-		return Decision{Status: http.StatusServiceUnavailable, Code: "identity_unavailable", Message: "Unable to verify the Coder identity.", Detail: err.Error()}
+		return UserAccess{}, Decision{Status: http.StatusServiceUnavailable, Code: "identity_unavailable", Message: "Unable to verify the Coder identity.", Detail: err.Error()}
+	}
+	if _, ok := p.adminUsernames[user.Username]; ok {
+		return UserAccess{authenticated: true, admin: true}, Decision{}
 	}
 	if _, ok := p.allowedUsernames[user.Username]; ok {
+		return UserAccess{authenticated: true}, Decision{}
+	}
+	return UserAccess{}, forbidden("user_access_forbidden", "This user is not allowed to access Coder.")
+}
+
+// Evaluate returns the workspace-policy decision for an admitted request.
+func (p *Policy) Evaluate(ctx context.Context, request *http.Request, normalizedPath string, access UserAccess) Decision {
+	route := classifyRoute(request.Method, normalizedPath)
+	if route.kind == routeAllowed || access.admin {
 		return Decision{}
+	}
+	if !access.authenticated {
+		status := access.authenticationStatus
+		if status == 0 {
+			status = http.StatusUnauthorized
+		}
+		return Decision{Status: status, Code: "authentication_required", Message: "Coder authentication is required."}
 	}
 
 	switch route.kind {
@@ -72,6 +94,10 @@ func (p *Policy) Evaluate(ctx context.Context, request *http.Request, normalized
 		return p.evaluateDormancy(request)
 	case routeWorkspaceBuild:
 		return p.evaluateBuild(ctx, request, route.workspaceID)
+	case routeUserPassword:
+		return forbidden("user_password_update_forbidden", "Changing user passwords is not allowed.")
+	case routeUserProfile:
+		return forbidden("user_profile_update_forbidden", "Changing user profiles is not allowed.")
 	default:
 		return Decision{}
 	}

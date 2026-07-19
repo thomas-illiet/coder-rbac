@@ -2,16 +2,17 @@
 
 ## Security property
 
-The product is intended to prevent a Coder user whose canonical username is not
-in the allowlist from performing selected workspace mutations, including
-through the Coder CLI inside that user's workspace container.
+The product is intended to deny Coder access to authenticated usernames outside
+the configured administrator and allowed lists, and to prevent admitted
+non-administrators from performing selected workspace mutations, including
+through the Coder CLI inside their workspace container.
 
 This property depends on all of the following controls:
 
 1. the proxy's HTTP authorization policy;
 2. network enforcement that prevents direct access to `coderd`;
 3. compatibility with the deployed Coder version;
-4. controlled allowlisted-username and Kubernetes configuration.
+4. controlled administrator, allowed-user, and Kubernetes configuration.
 
 ## Threat model
 
@@ -35,6 +36,8 @@ This property depends on all of the following controls:
 
 - direct protected-route calls from the UI or CLI;
 - use of a valid Coder cookie or token from a workspace;
+- use of a valid Coder user session whose username is not admitted;
+- password, username, display-name, or avatar changes by an allowed standard user;
 - repeated encoding and ambiguous path segments;
 - changes to established persistent or ephemeral parameter values during a
   start or upgrade;
@@ -47,7 +50,7 @@ This property depends on all of the following controls:
 
 - compromise of `coderd`, PostgreSQL, or the cluster;
 - a malicious Kubernetes administrator;
-- a user whose canonical username is in the allowlist;
+- an administrator whose canonical username is configured for exemption;
 - an unclassified Coder route that provides an equivalent mutation;
 - direct `coderd` access enabled by another network exposure;
 - security of workspace content and applications themselves.
@@ -68,18 +71,22 @@ to the trusted network.
 
 ## Fail-closed behavior
 
-The proxy rejects a protected operation instead of forwarding it when:
+The proxy rejects access or a protected operation instead of forwarding it when:
 
 - the version gate is not ready;
-- `/api/v2/users/me` cannot identify the user;
+- `/api/v2/users/me` fails for a reason other than Coder `401` or `403`;
+- an identified username is absent from both access lists;
 - the workspace or latest build cannot be read;
 - the current or target parameter schema is unavailable;
 - current values or presets cannot be loaded;
 - a submitted parameter requires a current value that is unavailable;
 - a Coder policy response is malformed, contains extra JSON, or exceeds 4 MiB.
 
-Unprotected routes do not require those auxiliary lookups, but they are still
-blocked while the global version gate is not ready.
+Every request outside the narrow native-authentication and public-asset set
+performs the identity lookup. Coder `401` or `403` identity responses are
+forwarded for native anonymous, agent, and service handling. Other identity
+failures are fail closed, and every request remains blocked while the global
+version gate is not ready.
 
 See [Authorization policy](policy.md#workspace-parameters) for the narrowly
 allowed first value of an ephemeral parameter introduced by a target version.
@@ -131,9 +138,11 @@ curl --connect-timeout 3 http://coder.coder.svc.cluster.local  # Fails at the ne
 YAML inspection is not sufficient evidence. Test from a pod that is actually
 selected by the NetworkPolicy.
 
-## Allowlisted usernames
+## Administrator and allowed usernames
 
-An allowlist entry bypasses the complete policy. Recommended controls are:
+An administrator entry admits the user and bypasses the complete workspace
+policy. An allowed-user entry admits the user without an exemption. Recommended
+controls for both lists are:
 
 - use the exact canonical username returned by Coder;
 - verify that the username maps to the intended account on every managed Coder
@@ -146,10 +155,10 @@ An allowlist entry bypasses the complete policy. Recommended controls are:
 - prefer a dedicated service identity when a human identity is unnecessary;
 - monitor privileged protected operations in Coder logs.
 
-Matching is exact and case-sensitive. A username rename removes the exemption;
-reuse of an allowlisted username grants the exemption to the replacement
-account. Portability across Coder instances therefore depends on consistent
-identity governance, not only on using the same configuration value.
+Matching is exact and case-sensitive. A username rename removes access or the
+exemption; reuse of a configured username grants that capability to the
+replacement account. Portability across Coder instances therefore depends on
+consistent identity governance, not only on configuration values.
 
 ## Prometheus endpoint
 
@@ -166,8 +175,8 @@ contain no cookies or tokens.
 ## Secrets and logs
 
 The proxy needs no Coder service token; it reuses the request identity. The Helm
-chart stores allowlisted usernames in a Secret even though usernames are not
-cryptographic secrets.
+chart stores administrator and allowed usernames in a Secret even though
+usernames are not cryptographic secrets.
 
 JSON logs include infrastructure errors and limited request metadata. Internal
 details for a `5xx` policy decision are logged server-side and removed from the
@@ -182,8 +191,8 @@ client response. Never add cookies, tokens, or complete request bodies to logs.
 - [ ] Every workspace receives the internal proxy `CODER_URL`.
 - [ ] NetworkPolicies are tested from a real workspace.
 - [ ] Provisioners and operators are allowed explicitly, without a global rule.
-- [ ] Allowlisted usernames and their account mappings are reviewed on every
-      Coder instance.
+- [ ] Administrator and allowed usernames and their account mappings are
+      reviewed on every Coder instance.
 - [ ] The Coder version is pinned and validated.
 - [ ] The Prometheus listener is private.
 - [ ] Readiness, error, and rejection alerts are configured.

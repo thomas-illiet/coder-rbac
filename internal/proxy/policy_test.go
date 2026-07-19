@@ -39,8 +39,8 @@ type policyFixture struct {
 	seenToken        string
 }
 
-// newPolicyFixture creates a policy test server with deterministic Coder API responses.
-func newPolicyFixture(t *testing.T, allowed map[string]struct{}) *policyFixture {
+// newPolicyFixture creates a policy test server with an admitted standard user by default.
+func newPolicyFixture(t *testing.T, admins map[string]struct{}) *policyFixture {
 	t.Helper()
 	fixture := &policyFixture{
 		t:                t,
@@ -54,7 +54,7 @@ func newPolicyFixture(t *testing.T, allowed map[string]struct{}) *policyFixture 
 	}
 	fixture.server = httptest.NewServer(http.HandlerFunc(fixture.handle))
 	baseURL, _ := url.Parse(fixture.server.URL)
-	fixture.policy = NewPolicy(coder.NewClient(baseURL, fixture.server.Client()), allowed, 1<<20)
+	fixture.policy = NewPolicy(coder.NewClient(baseURL, fixture.server.Client()), admins, map[string]struct{}{testUsername: {}}, 1<<20)
 	t.Cleanup(fixture.server.Close)
 	return fixture
 }
@@ -109,23 +109,84 @@ func (f *policyFixture) evaluate(method, path, body string) Decision {
 	if err != nil {
 		f.t.Fatal(err)
 	}
-	return f.policy.Evaluate(request.Context(), request, normalized)
+	access, decision := f.policy.Authorize(request.Context(), request)
+	if decision.Blocked() {
+		return decision
+	}
+	return f.policy.Evaluate(request.Context(), request, normalized, access)
 }
 
-// TestAllowedUsernameBypassesPolicy verifies a canonical username bypasses every restriction.
-func TestAllowedUsernameBypassesPolicy(t *testing.T) {
+// TestAdminUsernameBypassesPolicy verifies an administrator bypasses every restriction.
+func TestAdminUsernameBypassesPolicy(t *testing.T) {
 	fixture := newPolicyFixture(t, map[string]struct{}{testUsername: {}})
 	decision := fixture.evaluate(http.MethodPatch, "/api/v2/workspaces/"+testWorkspaceID.String(), `{}`)
 	if decision.Blocked() {
-		t.Fatalf("allowed user blocked: %+v", decision)
+		t.Fatalf("administrator blocked: %+v", decision)
 	}
 }
 
-// TestAllowedUsernameMatchingIsCaseSensitive verifies differently cased identities stay restricted.
-func TestAllowedUsernameMatchingIsCaseSensitive(t *testing.T) {
+// TestAdminUsernameMatchingIsCaseSensitive verifies differently cased identities stay restricted.
+func TestAdminUsernameMatchingIsCaseSensitive(t *testing.T) {
 	fixture := newPolicyFixture(t, map[string]struct{}{"Platform-Admin": {}})
 	decision := fixture.evaluate(http.MethodPatch, "/api/v2/workspaces/"+testWorkspaceID.String(), `{}`)
 	if decision.Status != http.StatusForbidden || decision.Code != "workspace_rename_forbidden" {
+		t.Fatalf("decision = %+v", decision)
+	}
+}
+
+// TestAllowedUsernameRemainsRestricted verifies admitted standard users do not bypass workspace policy.
+func TestAllowedUsernameRemainsRestricted(t *testing.T) {
+	fixture := newPolicyFixture(t, nil)
+	decision := fixture.evaluate(http.MethodPatch, "/api/v2/workspaces/"+testWorkspaceID.String(), `{}`)
+	if decision.Status != http.StatusForbidden || decision.Code != "workspace_rename_forbidden" {
+		t.Fatalf("decision = %+v", decision)
+	}
+}
+
+// TestUserAccountUpdatesReturnStableCodes verifies profile and password mutations have distinct denials.
+func TestUserAccountUpdatesReturnStableCodes(t *testing.T) {
+	fixture := newPolicyFixture(t, nil)
+	tests := []struct {
+		path string
+		code string
+	}{
+		{path: "/api/v2/users/me/password", code: "user_password_update_forbidden"},
+		{path: "/api/v2/users/me/profile", code: "user_profile_update_forbidden"},
+	}
+	for _, test := range tests {
+		decision := fixture.evaluate(http.MethodPut, test.path, `{}`)
+		if decision.Status != http.StatusForbidden || decision.Code != test.code {
+			t.Errorf("%s decision = %+v", test.path, decision)
+		}
+	}
+}
+
+// TestAllowedUsernameMatchingIsCaseSensitive verifies differently cased users are denied access.
+func TestAllowedUsernameMatchingIsCaseSensitive(t *testing.T) {
+	fixture := newPolicyFixture(t, nil)
+	fixture.policy.allowedUsernames = map[string]struct{}{"Platform-Admin": {}}
+	decision := fixture.evaluate(http.MethodGet, "/api/v2/users/me", ``)
+	if decision.Status != http.StatusForbidden || decision.Code != "user_access_forbidden" {
+		t.Fatalf("decision = %+v", decision)
+	}
+}
+
+// TestEmptyAllowedUsernamesAdmitsAdministrator verifies administrators need no duplicate entry.
+func TestEmptyAllowedUsernamesAdmitsAdministrator(t *testing.T) {
+	fixture := newPolicyFixture(t, map[string]struct{}{testUsername: {}})
+	fixture.policy.allowedUsernames = nil
+	decision := fixture.evaluate(http.MethodGet, "/api/v2/users/me", ``)
+	if decision.Blocked() {
+		t.Fatalf("administrator blocked: %+v", decision)
+	}
+}
+
+// TestUnlistedUsernameCannotAccessCoder verifies admission is denied before route policy evaluation.
+func TestUnlistedUsernameCannotAccessCoder(t *testing.T) {
+	fixture := newPolicyFixture(t, nil)
+	fixture.policy.allowedUsernames = nil
+	decision := fixture.evaluate(http.MethodGet, "/api/v2/users/me", ``)
+	if decision.Status != http.StatusForbidden || decision.Code != "user_access_forbidden" {
 		t.Fatalf("decision = %+v", decision)
 	}
 }
@@ -140,7 +201,7 @@ func TestMissingUsernameIsFailClosed(t *testing.T) {
 	}
 }
 
-// TestIdentityFailureIsFailClosed verifies identity lookup failures reject protected requests.
+// TestIdentityFailureIsFailClosed verifies identity lookup failures reject requests.
 func TestIdentityFailureIsFailClosed(t *testing.T) {
 	fixture := newPolicyFixture(t, nil)
 	fixture.identityStatus = http.StatusUnauthorized

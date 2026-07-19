@@ -15,6 +15,12 @@ func TestStaticPolicyRoutes(t *testing.T) {
 		blocked bool
 	}{
 		{name: "create", method: http.MethodPost, path: "/api/v2/users/me/workspaces", blocked: true},
+		{name: "update own password", method: http.MethodPut, path: "/api/v2/users/me/password", blocked: true},
+		{name: "update password by username", method: http.MethodPut, path: "/api/v2/users/developer/password", blocked: true},
+		{name: "read password route", method: http.MethodGet, path: "/api/v2/users/me/password", blocked: false},
+		{name: "update own profile", method: http.MethodPut, path: "/api/v2/users/me/profile", blocked: true},
+		{name: "update profile by ID", method: http.MethodPut, path: "/api/v2/users/22222222-2222-2222-2222-222222222222/profile", blocked: true},
+		{name: "read profile route", method: http.MethodGet, path: "/api/v2/users/me/profile", blocked: false},
 		{name: "legacy organization creation explicitly allowed", method: http.MethodPost, path: "/api/v2/organizations/default/members/me/workspaces", blocked: false},
 		{name: "rename", method: http.MethodPatch, path: "/api/v2/workspaces/" + testWorkspaceID.String(), blocked: true},
 		{name: "autostart", method: http.MethodPut, path: "/api/v2/workspaces/" + testWorkspaceID.String() + "/autostart", blocked: true},

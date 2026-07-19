@@ -14,6 +14,8 @@ admin_password=${CODER_BOOTSTRAP_PASSWORD:-CoderRbac123!}
 workspace=${CODER_BOOTSTRAP_WORKSPACE:-demo}
 email=${CODER_RESTRICTED_EMAIL:-user@example.com}
 password=${CODER_RESTRICTED_PASSWORD:-CoderUser123!}
+blocked_email=${CODER_BLOCKED_EMAIL:-blocked@example.com}
+blocked_password=${CODER_BLOCKED_PASSWORD:-CoderBlocked123!}
 
 login_response=$(curl --fail --silent \
   --request POST \
@@ -33,9 +35,41 @@ admin_login_response=$(curl --fail --silent \
   "$base_url/api/v2/users/login")
 admin_session_token=$(printf '%s' "$admin_login_response" | jq -r '.session_token // empty')
 if [ -z "$admin_session_token" ]; then
-  echo "unable to log in as the allowlisted local administrator" >&2
+  echo "unable to log in as the local administrator" >&2
   exit 1
 fi
+
+blocked_login_response=$(curl --fail --silent \
+  --request POST \
+  --header 'Content-Type: application/json' \
+  --data "{\"email\":\"$blocked_email\",\"password\":\"$blocked_password\"}" \
+  "$base_url/api/v2/users/login")
+blocked_session_token=$(printf '%s' "$blocked_login_response" | jq -r '.session_token // empty')
+if [ -z "$blocked_session_token" ]; then
+  echo "unable to complete native Coder authentication for the blocked user" >&2
+  exit 1
+fi
+blocked_status=$(curl --silent --output /tmp/coder-rbac-local-response.json --write-out '%{http_code}' \
+  --header "Coder-Session-Token: $blocked_session_token" \
+  "$base_url/api/v2/users/me")
+if [ "$blocked_status" != "403" ] || [ "$(jq -r '.code // empty' /tmp/coder-rbac-local-response.json)" != "user_access_forbidden" ]; then
+  echo "blocked user unexpectedly reached Coder (HTTP $blocked_status)" >&2
+  cat /tmp/coder-rbac-local-response.json >&2
+  exit 1
+fi
+echo "PASS: unlisted user is denied after native Coder authentication (HTTP 403)"
+
+switch_login_response=$(curl --fail --silent \
+  --request POST \
+  --header 'Content-Type: application/json' \
+  --header "Coder-Session-Token: $blocked_session_token" \
+  --data "{\"email\":\"$email\",\"password\":\"$password\"}" \
+  "$base_url/api/v2/users/login")
+if [ -z "$(printf '%s' "$switch_login_response" | jq -r '.session_token // empty')" ]; then
+  echo "blocked session prevented switching to an allowed account" >&2
+  exit 1
+fi
+echo "PASS: blocked browser session can submit a new native login"
 
 for local_alias in http://localhost:7080 http://127.0.0.1:7080; do
   status=$(curl --silent --output /tmp/coder-rbac-local-response.json --write-out '%{http_code}' \
@@ -59,7 +93,7 @@ if [ "$admin_create_status" = "403" ]; then
   cat /tmp/coder-rbac-local-response.json >&2
   exit 1
 fi
-echo "PASS: allowlisted administrator reaches the Coder workspace creation API (HTTP $admin_create_status)"
+echo "PASS: administrator reaches the Coder workspace creation API (HTTP $admin_create_status)"
 
 # api_request sends an authenticated JSON request through the restricted session.
 api_request() {
@@ -109,6 +143,37 @@ assert_status 403 "$status" "workspace rename is blocked"
 
 status=$(api_request PUT "/api/v2/workspaces/$workspace_id/ttl" '{"ttl_ms":3600000}')
 assert_status 403 "$status" "workspace TTL is blocked"
+
+status=$(api_request PUT /api/v2/users/me/password '{}')
+assert_status 403 "$status" "user password updates are blocked"
+if [ "$(jq -r '.code // empty' /tmp/coder-rbac-local-response.json)" != "user_password_update_forbidden" ]; then
+  echo "password update returned an unexpected denial" >&2
+  cat /tmp/coder-rbac-local-response.json >&2
+  exit 1
+fi
+
+status=$(api_request PUT /api/v2/users/me/profile '{}')
+assert_status 403 "$status" "user profile updates are blocked"
+if [ "$(jq -r '.code // empty' /tmp/coder-rbac-local-response.json)" != "user_profile_update_forbidden" ]; then
+  echo "profile update returned an unexpected denial" >&2
+  cat /tmp/coder-rbac-local-response.json >&2
+  exit 1
+fi
+
+for admin_path in /api/v2/users/me/password /api/v2/users/me/profile; do
+  admin_status=$(curl --silent --output /tmp/coder-rbac-local-response.json --write-out '%{http_code}' \
+    --request PUT \
+    --header 'Content-Type: application/json' \
+    --header "Coder-Session-Token: $admin_session_token" \
+    --data '{}' \
+    "$base_url$admin_path")
+  if [ "$admin_status" = "403" ]; then
+    echo "administrator was blocked from $admin_path" >&2
+    cat /tmp/coder-rbac-local-response.json >&2
+    exit 1
+  fi
+done
+echo "PASS: administrator reaches password and profile update APIs"
 
 status=$(api_request POST "/api/v2/workspaces/$workspace_id/builds" '{"transition":"start","rich_parameter_values":[{"name":"debug","value":"true"}]}')
 assert_status 403 "$status" "workspace parameter changes are blocked"
@@ -166,6 +231,37 @@ docker exec \
   "$workspace_container" sh -lc "$coder_command; \"\$coder_bin\" list >/dev/null"
 echo "PASS: the Coder CLI works through the internal proxy"
 
+# Coder 2.35.2 has no self-service CLI commands for these mutations. The test
+# authenticates with the CLI, then exercises the exact API routes from the same
+# container, token, and CODER_URL that the CLI uses.
+# shellcheck disable=SC2016
+docker exec \
+  --env "CODER_SESSION_TOKEN=$session_token" \
+  --env 'CODER_URL=http://coder-rbac:8080' \
+  --env "EXPECTED_CODER_USERNAME=${CODER_RESTRICTED_USERNAME:-user}" \
+  "$workspace_container" sh -lc '
+    set -eu
+    coder_bin=$(command -v coder || find /tmp -type f -name coder -perm -111 2>/dev/null | head -1)
+    "$coder_bin" users show me | grep -q "Username:.*$EXPECTED_CODER_USERNAME"
+    for route_and_code in \
+      "password user_password_update_forbidden" \
+      "profile user_profile_update_forbidden"
+    do
+      set -- $route_and_code
+      route=$1
+      expected_code=$2
+      status=$(curl --silent --output "/tmp/coder-rbac-cli-$route.json" --write-out "%{http_code}" \
+        --request PUT \
+        --header "Content-Type: application/json" \
+        --header "Coder-Session-Token: $CODER_SESSION_TOKEN" \
+        --data "{}" \
+        "$CODER_URL/api/v2/users/me/$route")
+      test "$status" = "403"
+      grep -q "\"code\":\"$expected_code\"" "/tmp/coder-rbac-cli-$route.json"
+    done
+  '
+echo "PASS: CLI identity cannot update its password or profile through the internal proxy"
+
 if docker exec \
   --env "CODER_SESSION_TOKEN=$session_token" \
   --env 'CODER_URL=http://coder-rbac:8080' \
@@ -189,6 +285,11 @@ case "$wildcard_body" in
   *) echo "wildcard application did not return the expected content" >&2; exit 1 ;;
 esac
 echo "PASS: wildcard application is reachable through coder-rbac"
+
+blocked_wildcard_status=$(curl --silent --output /tmp/coder-rbac-local-response.json --write-out '%{http_code}' \
+  --header "Coder-Session-Token: $blocked_session_token" \
+  "$wildcard_url/")
+assert_status 403 "$blocked_wildcard_status" "unlisted user is denied on wildcard applications"
 
 status=$(curl --silent --output /tmp/coder-rbac-local-response.json --write-out '%{http_code}' \
   --header "Coder-Session-Token: $session_token" \

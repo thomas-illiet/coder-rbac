@@ -2,8 +2,10 @@ config:
   upstreamURL: http://coder.coder.svc.cluster.local:80
   publicURL: https://coder.example.com
   wildcardAccessHost: "*.apps.example.com"
-  allowedUsernames:
+  adminUsernames:
     - platform-admin
+  allowedUsernames:
+    - developer
 ingress:
   main:
     host: coder.example.com

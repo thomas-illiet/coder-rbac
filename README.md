@@ -1,9 +1,9 @@
 # coder-rbac
 
 `coder-rbac` is a transparent, policy-enforcing reverse proxy for Coder 2.35.x.
-It preserves Coder authentication and streaming behavior while restricting
-workspace lifecycle and configuration changes for users who are not in an
-explicit username allowlist.
+It preserves Coder authentication and streaming behavior while admitting only
+configured users and restricting workspace lifecycle and configuration changes
+for admitted non-administrators.
 
 The proxy must be the only route to `coderd` for browsers, the Coder CLI,
 workspace agents, and workspace containers. It supports HTTP streaming and
@@ -12,11 +12,12 @@ applications.
 
 ## Policy at a glance
 
-For users whose canonical Coder username is not listed in
-`CODER_RBAC_ALLOWED_USERNAMES`, the proxy blocks workspace creation, deletion,
-renaming, lifecycle settings, dormancy, provisioner state overrides, and
-parameter changes. Start, stop, wake, favorites, ACL changes, and compatible
-template upgrades remain available.
+`CODER_RBAC_ADMIN_USERNAMES` lists admitted administrators who bypass workspace
+restrictions. `CODER_RBAC_ALLOWED_USERNAMES` lists admitted standard users, for
+whom the proxy blocks password and profile updates plus workspace creation,
+deletion, renaming, lifecycle settings, dormancy, provisioner state overrides,
+and parameter changes. Any other authenticated username receives
+`403 user_access_forbidden`.
 
 The complete and normative behavior, including response codes and parameter
 rules, is documented in [Authorization policy](docs/policy.md).
@@ -38,6 +39,8 @@ go run ./cmd/coder-rbac serve \
   --public-url=https://coder.example.com \
   --wildcard-access-host='*.apps.example.com' \
   --internal-hosts=coder-rbac,coder-rbac.coder.svc.cluster.local \
+  --admin-usernames=platform-admin \
+  --allowed-usernames=developer \
   --expected-version-prefix=v2.35.
 ```
 

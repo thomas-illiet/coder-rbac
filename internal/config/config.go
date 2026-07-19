@@ -15,6 +15,7 @@ type Config struct {
 	PublicURL              *url.URL
 	WildcardAccessHost     string
 	InternalHosts          []string
+	AdminUsernames         map[string]struct{}
 	AllowedUsernames       map[string]struct{}
 	ExpectedVersionPrefix  string
 	ListenAddress          string

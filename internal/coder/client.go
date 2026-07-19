@@ -38,7 +38,7 @@ func NewClient(baseURL *url.URL, httpClient *http.Client) *Client {
 	return &Client{baseURL: baseURL, httpClient: httpClient}
 }
 
-// User contains the canonical Coder username needed for allowlist evaluation.
+// User contains the canonical Coder username needed for admission and policy evaluation.
 type User struct {
 	Username string `json:"username"`
 }

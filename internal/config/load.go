@@ -31,11 +31,12 @@ func Load(v *viper.Viper) (Config, error) {
 		return Config{}, fmt.Errorf("internal-hosts: %w", err)
 	}
 	if _, present := os.LookupEnv("CODER_RBAC_ALLOWED_USER_IDS"); present {
-		return Config{}, fmt.Errorf("CODER_RBAC_ALLOWED_USER_IDS is no longer supported; use CODER_RBAC_ALLOWED_USERNAMES")
+		return Config{}, fmt.Errorf("CODER_RBAC_ALLOWED_USER_IDS is no longer supported; use CODER_RBAC_ADMIN_USERNAMES")
 	}
 	if legacy := strings.TrimSpace(v.GetString("allowed-user-ids")); legacy != "" {
-		return Config{}, fmt.Errorf("allowed-user-ids is no longer supported; use allowed-usernames")
+		return Config{}, fmt.Errorf("allowed-user-ids is no longer supported; use admin-usernames")
 	}
+	adminUsernames := parseUsernameSet(v.GetString("admin-usernames"))
 	allowedUsernames := parseUsernameSet(v.GetString("allowed-usernames"))
 
 	cfg := Config{
@@ -43,6 +44,7 @@ func Load(v *viper.Viper) (Config, error) {
 		PublicURL:              publicURL,
 		WildcardAccessHost:     wildcardHost,
 		InternalHosts:          internalHosts,
+		AdminUsernames:         adminUsernames,
 		AllowedUsernames:       allowedUsernames,
 		ExpectedVersionPrefix:  strings.TrimSpace(v.GetString("expected-version-prefix")),
 		ListenAddress:          strings.TrimSpace(v.GetString("listen-address")),
