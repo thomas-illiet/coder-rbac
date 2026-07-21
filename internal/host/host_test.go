@@ -7,7 +7,7 @@ func TestNormalize(t *testing.T) {
 	tests := map[string]string{
 		" EXAMPLE.COM. ":      "example.com",
 		"*.APPS.EXAMPLE.COM.": "*.apps.example.com",
-		"coder-rbac":          "coder-rbac",
+		"coder-policy":        "coder-policy",
 		"":                    "",
 	}
 	for input, expected := range tests {
@@ -22,7 +22,7 @@ func TestWithoutPort(t *testing.T) {
 	tests := map[string]string{
 		"EXAMPLE.COM.:443": "example.com",
 		"[::1]:8080":       "::1",
-		"coder-rbac":       "coder-rbac",
+		"coder-policy":     "coder-policy",
 		"example.com.":     "example.com",
 	}
 	for input, expected := range tests {

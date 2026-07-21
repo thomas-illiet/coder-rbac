@@ -1,6 +1,6 @@
-# coder-rbac
+# coder-policy
 
-`coder-rbac` is a transparent, policy-enforcing reverse proxy for Coder 2.35.x.
+`coder-policy` is a transparent, policy-enforcing reverse proxy for Coder 2.35.x.
 It preserves Coder authentication and streaming behavior while admitting only
 configured users and restricting workspace lifecycle and configuration changes
 for admitted non-administrators.
@@ -12,8 +12,8 @@ applications.
 
 ## Policy at a glance
 
-`CODER_RBAC_ADMIN_USERNAMES` lists admitted administrators who bypass workspace
-restrictions. `CODER_RBAC_ALLOWED_USERNAMES` lists admitted standard users, for
+`CODER_POLICY_ADMIN_USERNAMES` lists admitted administrators who bypass workspace
+restrictions. `CODER_POLICY_ALLOWED_USERNAMES` lists admitted standard users, for
 whom the proxy blocks password and profile updates plus workspace creation,
 deletion, renaming, lifecycle settings, dormancy, provisioner state overrides,
 and parameter changes. Any other authenticated username receives
@@ -34,17 +34,17 @@ Application wildcard hosts hide `/api/v2`, `/cli-auth`, and `/setup` with a
 ## Quick start
 
 ```shell
-go run ./cmd/coder-rbac serve \
+go run ./cmd/coder-policy serve \
   --upstream-url=http://127.0.0.1:3000 \
   --public-url=https://coder.example.com \
   --wildcard-access-host='*.apps.example.com' \
-  --internal-hosts=coder-rbac,coder-rbac.coder.svc.cluster.local \
+  --internal-hosts=coder-policy,coder-policy.coder.svc.cluster.local \
   --admin-usernames=platform-admin \
   --allowed-usernames=developer \
   --expected-version-prefix=v2.35.
 ```
 
-The equivalent settings are available through `CODER_RBAC_*` environment
+The equivalent settings are available through `CODER_POLICY_*` environment
 variables. See [Configuration](docs/configuration.md) for every flag, variable,
 default, validation rule, and Helm mapping.
 

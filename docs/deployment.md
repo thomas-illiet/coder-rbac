@@ -13,7 +13,7 @@ below:
 
 Every deployment must satisfy all of these conditions:
 
-1. The public Coder URL and application wildcard route through `coder-rbac`.
+1. The public Coder URL and application wildcard route through `coder-policy`.
 2. Every workspace and bundled Coder CLI uses a proxy URL in `CODER_URL`.
 3. Workspace traffic cannot reach `coderd` directly.
 4. `coderd` has no alternate public Ingress, LoadBalancer, or equivalent path.
@@ -30,7 +30,7 @@ Before deployment, prepare:
 - a Coder version compatible with the configured prefix, normally `v2.35.`;
 - DNS for the main URL and wildcard DNS for applications;
 - main and wildcard TLS certificates;
-- a published `coder-rbac` image built from an identified commit;
+- a published `coder-policy` image built from an identified commit;
 - the exact labels and network identities used by Coder, workspaces,
   provisioners, and operators;
 - monitoring for readiness, transport errors, and policy rejections.
@@ -45,7 +45,7 @@ After any deployment or configuration change:
 4. verify that start, stop, wake, and compatible upgrades still work;
 5. verify that password, profile, workspace creation, deletion, renaming,
    lifecycle settings, and parameter changes are rejected for a standard user;
-6. test from a real workspace that its CLI works through `coder-rbac` and a
+6. test from a real workspace that its CLI works through `coder-policy` and a
    direct `coderd` request fails at the network layer.
 
 The last test is essential. Static configuration alone does not prove that the

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thomas-illiet/coder-rbac/internal/coder"
+	"coder-policy/internal/coder"
 )
 
 // buildInfoClientFunc adapts a function to the buildInfoClient interface.

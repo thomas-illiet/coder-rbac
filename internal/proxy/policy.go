@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/thomas-illiet/coder-rbac/internal/coder"
+	"coder-policy/internal/coder"
 )
 
 // Decision describes whether and how the proxy must reject a request.

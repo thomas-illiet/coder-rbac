@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/thomas-illiet/coder-rbac/internal/coder"
-	"github.com/thomas-illiet/coder-rbac/internal/config"
-	proxyhandler "github.com/thomas-illiet/coder-rbac/internal/proxy"
-	"github.com/thomas-illiet/coder-rbac/internal/versiongate"
+	"coder-policy/internal/coder"
+	"coder-policy/internal/config"
+	proxyhandler "coder-policy/internal/proxy"
+	"coder-policy/internal/versiongate"
 )
 
 // readinessReader is the version-gate state required by health and metrics handlers.

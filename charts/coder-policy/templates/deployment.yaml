@@ -1,14 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "coder-rbac.fullname" . }}
+  name: {{ include "coder-policy.fullname" . }}
   labels:
-    {{- include "coder-rbac.labels" . | nindent 4 }}
+    {{- include "coder-policy.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      {{- include "coder-rbac.selectorLabels" . | nindent 6 }}
+      {{- include "coder-policy.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
@@ -18,12 +18,12 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "coder-rbac.selectorLabels" . | nindent 8 }}
+        {{- include "coder-policy.selectorLabels" . | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      serviceAccountName: {{ include "coder-rbac.serviceAccountName" . }}
+      serviceAccountName: {{ include "coder-policy.serviceAccountName" . }}
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       {{- with .Values.imagePullSecrets }}
@@ -33,15 +33,15 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: coder-rbac
+        - name: coder-policy
           image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args: ["serve"]
           envFrom:
             - configMapRef:
-                name: {{ include "coder-rbac.fullname" . }}
+                name: {{ include "coder-policy.fullname" . }}
             - secretRef:
-                name: {{ include "coder-rbac.fullname" . }}
+                name: {{ include "coder-policy.fullname" . }}
           ports:
             - name: http
               containerPort: {{ .Values.service.proxyPort }}

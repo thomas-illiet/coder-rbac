@@ -14,12 +14,12 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY . .
 RUN --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 go build -trimpath \
-    -ldflags="-s -w -X github.com/thomas-illiet/coder-rbac/internal/buildinfo.Version=${VERSION} -X github.com/thomas-illiet/coder-rbac/internal/buildinfo.Commit=${COMMIT} -X github.com/thomas-illiet/coder-rbac/internal/buildinfo.Date=${BUILD_DATE}" \
-    -o /out/coder-rbac ./cmd/coder-rbac
+    -ldflags="-s -w -X coder-policy/internal/buildinfo.Version=${VERSION} -X coder-policy/internal/buildinfo.Commit=${COMMIT} -X coder-policy/internal/buildinfo.Date=${BUILD_DATE}" \
+    -o /out/coder-policy ./cmd/coder-policy
 
 FROM gcr.io/distroless/static-debian12:nonroot
-COPY --from=build /out/coder-rbac /usr/local/bin/coder-rbac
+COPY --from=build /out/coder-policy /usr/local/bin/coder-policy
 USER nonroot:nonroot
 EXPOSE 8080 8081 9090
-ENTRYPOINT ["/usr/local/bin/coder-rbac"]
+ENTRYPOINT ["/usr/local/bin/coder-policy"]
 CMD ["serve"]

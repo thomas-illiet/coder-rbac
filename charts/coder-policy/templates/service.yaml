@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "coder-rbac.fullname" . }}
+  name: {{ include "coder-policy.fullname" . }}
   labels:
-    {{- include "coder-rbac.labels" . | nindent 4 }}
+    {{- include "coder-policy.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   selector:
-    {{- include "coder-rbac.selectorLabels" . | nindent 4 }}
+    {{- include "coder-policy.selectorLabels" . | nindent 4 }}
   ports:
     - name: http
       port: {{ .Values.service.proxyPort }}

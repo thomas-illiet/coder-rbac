@@ -1,4 +1,4 @@
-// Package command defines the Cobra command tree for coder-rbac.
+// Package command defines the Cobra command tree for coder-policy.
 package command
 
 import (
@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/thomas-illiet/coder-rbac/internal/buildinfo"
-	"github.com/thomas-illiet/coder-rbac/internal/config"
+	"coder-policy/internal/buildinfo"
+	"coder-policy/internal/config"
 )
 
 // Execute runs the root command with the process standard output streams.
@@ -18,10 +18,10 @@ func Execute() error {
 	return newRootCommand(os.Stdout, os.Stderr).Execute()
 }
 
-// newRootCommand builds the complete coder-rbac command tree.
+// newRootCommand builds the complete coder-policy command tree.
 func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	root := &cobra.Command{
-		Use:           "coder-rbac",
+		Use:           "coder-policy",
 		Short:         "Policy-enforcing reverse proxy for Coder",
 		SilenceErrors: true,
 		SilenceUsage:  true,
@@ -39,7 +39,7 @@ func newVersionCommand() *cobra.Command {
 		Short: "Print version information",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			_, err := fmt.Fprintf(cmd.OutOrStdout(), "coder-rbac %s (commit %s, built %s)\n", buildinfo.Version, buildinfo.Commit, buildinfo.Date)
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "coder-policy %s (commit %s, built %s)\n", buildinfo.Version, buildinfo.Commit, buildinfo.Date)
 			return err
 		},
 	}

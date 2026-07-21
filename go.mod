@@ -1,4 +1,4 @@
-module github.com/thomas-illiet/coder-rbac
+module coder-policy
 
 go 1.26.5
 

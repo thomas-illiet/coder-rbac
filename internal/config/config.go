@@ -1,4 +1,4 @@
-// Package config loads and validates coder-rbac runtime settings.
+// Package config loads and validates coder-policy runtime settings.
 package config
 
 import (
@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// EnvPrefix is the Viper environment-variable prefix used by coder-rbac.
-const EnvPrefix = "CODER_RBAC"
+// EnvPrefix is the Viper environment-variable prefix used by coder-policy.
+const EnvPrefix = "CODER_POLICY"
 
 // Config contains a validated snapshot of the proxy runtime configuration.
 type Config struct {

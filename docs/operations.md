@@ -16,7 +16,7 @@ according to the Deployment strategy.
 ## Shutdown
 
 SIGINT or SIGTERM initiates graceful shutdown. All three HTTP servers use
-`CODER_RBAC_SHUTDOWN_TIMEOUT`, after which idle upstream transport connections
+`CODER_POLICY_SHUTDOWN_TIMEOUT`, after which idle upstream transport connections
 are closed.
 
 Helm `terminationGracePeriodSeconds` must exceed the shutdown timeout. Their
@@ -25,17 +25,17 @@ defaults are `30s` and `15s`, respectively.
 ## Routine checks
 
 ```shell
-curl -fsS http://coder-rbac:8081/healthz
-curl -fsS http://coder-rbac:8081/readyz
-curl -fsS http://coder-rbac:9090/metrics \
-  | grep '^coder_rbac_coder_version_ready'
+curl -fsS http://coder-policy:8081/healthz
+curl -fsS http://coder-policy:8081/readyz
+curl -fsS http://coder-policy:9090/metrics \
+  | grep '^coder_policy_coder_version_ready'
 ```
 
 In Kubernetes:
 
 ```shell
-kubectl get pods -n coder -l app.kubernetes.io/name=coder-rbac
-kubectl logs -n coder deployment/coder-rbac --since=1h
+kubectl get pods -n coder -l app.kubernetes.io/name=coder-policy
+kubectl logs -n coder deployment/coder-policy --since=1h
 kubectl get events -n coder --sort-by=.lastTimestamp
 ```
 
@@ -44,7 +44,7 @@ kubectl get events -n coder --sort-by=.lastTimestamp
 Configuration does not reload dynamically. Change the Helm values and redeploy:
 
 ```shell
-helm upgrade coder-rbac charts/coder-rbac \
+helm upgrade coder-policy charts/coder-policy \
   -n coder \
   -f values.production.yaml \
   --wait
@@ -97,10 +97,10 @@ Likely causes include:
 - an incompatible Coder version.
 
 ```shell
-kubectl logs -n coder deployment/coder-rbac --previous
-kubectl get configmap,secret -n coder coder-rbac -o yaml
-kubectl exec -n coder deployment/coder-rbac \
-  -- /usr/local/bin/coder-rbac version
+kubectl logs -n coder deployment/coder-policy --previous
+kubectl get configmap,secret -n coder coder-policy -o yaml
+kubectl exec -n coder deployment/coder-policy \
+  -- /usr/local/bin/coder-policy version
 ```
 
 The distroless image has no shell. Run network diagnostics from an authorized
@@ -113,7 +113,7 @@ Check:
 - `Coder version gate became unready` logs;
 - DNS and connectivity to the upstream;
 - Coder `/api/v2/buildinfo`;
-- `CODER_RBAC_EXPECTED_VERSION_PREFIX`;
+- `CODER_POLICY_EXPECTED_VERSION_PREFIX`;
 - the Coder ingress NetworkPolicy.
 
 ### The proxy returns `421`
@@ -121,8 +121,8 @@ Check:
 The `Host` is not the public URL, a declared internal host, or a wildcard
 subdomain. Check:
 
-- `CODER_RBAC_PUBLIC_URL`;
-- `CODER_RBAC_INTERNAL_HOSTS`;
+- `CODER_POLICY_PUBLIC_URL`;
+- `CODER_POLICY_INTERNAL_HOSTS`;
 - `Host` preservation by the Ingress;
 - DNS and the port present in the request;
 - the URL used by the CLI.
@@ -133,7 +133,7 @@ This is expected when the path starts with `/api/v2`, `/cli-auth`, or `/setup`.
 For any other path, check:
 
 - Coder `CODER_WILDCARD_ACCESS_URL`;
-- `CODER_RBAC_WILDCARD_ACCESS_HOST`;
+- `CODER_POLICY_WILDCARD_ACCESS_HOST`;
 - wildcard DNS and TLS certificate;
 - `Host` forwarding by the Ingress;
 - application health in the Coder API.
@@ -148,7 +148,7 @@ Coder JSON response also fails closed.
 ### The proxy returns `403 user_access_forbidden`
 
 Coder authenticated the request, but the canonical username is absent from
-both `CODER_RBAC_ADMIN_USERNAMES` and `CODER_RBAC_ALLOWED_USERNAMES`. Check the
+both `CODER_POLICY_ADMIN_USERNAMES` and `CODER_POLICY_ALLOWED_USERNAMES`. Check the
 exact case-sensitive username with `coder users show me`, update the intended
 list, and redeploy. Do not add a standard user to the administrator list merely
 to restore access.
@@ -190,7 +190,7 @@ long-lived connections separately.
 
 ## Backup
 
-`coder-rbac` has no persistent state. Back up:
+`coder-policy` has no persistent state. Back up:
 
 - Helm values and configuration manifests;
 - administrator and allowed-username history and username-to-user-ID mappings;
@@ -203,8 +203,8 @@ long-lived connections separately.
 After rollback, confirm immediately:
 
 ```shell
-kubectl rollout status deployment/coder-rbac -n coder
-curl -fsS http://coder-rbac:8081/readyz
+kubectl rollout status deployment/coder-policy -n coder
+curl -fsS http://coder-policy:8081/readyz
 ```
 
 Then retest at least password and profile updates, workspace creation, renaming,

@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/thomas-illiet/coder-rbac/internal/coder"
+	"coder-policy/internal/coder"
 )
 
 // TestBuildPolicy verifies transitions, upgrades, presets, and immutable workspace parameters.

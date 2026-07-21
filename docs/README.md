@@ -1,7 +1,7 @@
-# coder-rbac documentation
+# coder-policy documentation
 
 This documentation describes the behavior implemented in this repository.
-`coder-rbac` targets Coder 2.35.x and adds an authorization policy in front of
+`coder-policy` targets Coder 2.35.x and adds an authorization policy in front of
 `coderd` without replacing Coder's native authentication.
 
 ## Recommended reading order
@@ -32,7 +32,7 @@ This documentation describes the behavior implemented in this repository.
 
 ## Essential security contract
 
-`coder-rbac` is a security boundary only when every path to Coder passes through
+`coder-policy` is a security boundary only when every path to Coder passes through
 it: the public URL, application wildcard, CLI, agents, and workspace-originated
 traffic. Any Ingress, Service, LoadBalancer, port-forward, or NetworkPolicy that
 makes `coderd` directly reachable allows the proxy policy to be bypassed.

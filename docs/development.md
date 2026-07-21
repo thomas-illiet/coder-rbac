@@ -4,14 +4,14 @@
 
 | Area | Responsibility |
 | --- | --- |
-| `cmd/coder-rbac` | Binary entry point |
+| `cmd/coder-policy` | Binary entry point |
 | `internal/command` | Cobra commands, flags, server wiring, and signals |
 | `internal/config` | Configuration loading and validation |
 | `internal/coder` | Minimal, bounded Coder API client |
 | `internal/versiongate` | Initial and periodic compatibility checks |
 | `internal/proxy` | Host routing, policy evaluation, reverse proxy, and metrics |
 | `internal/server` | HTTP server construction and lifecycle |
-| `charts/coder-rbac` | Helm chart and NetworkPolicies |
+| `charts/coder-policy` | Helm chart and NetworkPolicies |
 | `dev/local` | Compose bootstrap, workspace template, and validation |
 
 Keep files cohesive: split a file when it combines independent
@@ -95,7 +95,7 @@ Never allow an unknown transition or parameter implicitly.
 5. Test precedence, defaults, and invalid input.
 6. Wire Compose, Helm ConfigMap or Secret, and chart values.
 7. Update [configuration.md](configuration.md) and the comments in
-   [`values.yaml`](../charts/coder-rbac/values.yaml).
+   [`values.yaml`](../charts/coder-policy/values.yaml).
 
 ## Dependencies and deprecations
 

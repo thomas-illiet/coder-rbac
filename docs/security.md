@@ -25,7 +25,7 @@ This property depends on all of the following controls:
 
 ### Trusted components
 
-- the `coder-rbac` binary and image;
+- the `coder-policy` binary and image;
 - `coderd` and its database;
 - the Ingress controller and TLS termination;
 - administrators who can change Helm values, Secrets, NetworkPolicies, and
@@ -60,7 +60,7 @@ This property depends on all of the following controls:
 ```mermaid
 flowchart LR
     Untrusted["Untrusted clients and workspaces"] --> TLS["Ingress and TLS"]
-    TLS --> Proxy["coder-rbac boundary"]
+    TLS --> Proxy["coder-policy boundary"]
     Proxy --> Trusted["Trusted coderd and PostgreSQL network"]
     Admin["Privileged configuration"] --> Proxy
     Admin --> Network["Ingress, Services, and NetworkPolicies"]
@@ -129,8 +129,8 @@ The Compose lab uses HTTP and disables secure cookies only for local validation.
 Run these checks from a real workspace:
 
 ```shell
-coder list                         # Succeeds through coder-rbac.
-getent hosts coder-rbac            # Succeeds.
+coder list                         # Succeeds through coder-policy.
+getent hosts coder-policy            # Succeeds.
 getent hosts coder                 # Fails or resolves to an unreachable target.
 curl --connect-timeout 3 http://coder.coder.svc.cluster.local  # Fails at the network layer.
 ```

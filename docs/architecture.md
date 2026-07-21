@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`coder-rbac` is a transparent HTTP reverse proxy between clients and `coderd`.
+`coder-policy` is a transparent HTTP reverse proxy between clients and `coderd`.
 It preserves Coder authentication, rejects authenticated usernames outside the
 configured access lists, and denies selected workspace-management operations
 for admitted non-administrators.
@@ -23,9 +23,9 @@ All three listeners must use different ports.
 flowchart LR
     Browser["Browser and external CLI"] --> MainIngress["Main Ingress"]
     AppClient["Workspace application client"] --> WildcardIngress["Wildcard Ingress"]
-    Workspace["Workspace, agent, and internal CLI"] --> InternalService["Internal coder-rbac Service"]
+    Workspace["Workspace, agent, and internal CLI"] --> InternalService["Internal coder-policy Service"]
 
-    MainIngress --> Proxy["coder-rbac :8080"]
+    MainIngress --> Proxy["coder-policy :8080"]
     WildcardIngress --> Proxy
     InternalService --> Proxy
 
@@ -36,16 +36,16 @@ flowchart LR
     Policy --> Coder["coderd"]
     Coder --> Database["PostgreSQL"]
 
-    Prometheus["Prometheus"] --> Metrics["coder-rbac :9090 /metrics"]
-    Kubernetes["Kubernetes probes"] --> Health["coder-rbac :8081"]
+    Prometheus["Prometheus"] --> Metrics["coder-policy :9090 /metrics"]
+    Kubernetes["Kubernetes probes"] --> Health["coder-policy :8081"]
 ```
 
 ## Access paths
 
 ### Main public URL
 
-The main Ingress sends the URL configured by `CODER_RBAC_PUBLIC_URL` to the
-`coder-rbac` Service. Native authentication and public asset routes remain
+The main Ingress sends the URL configured by `CODER_POLICY_PUBLIC_URL` to the
+`coder-policy` Service. Native authentication and public asset routes remain
 reachable so a denied session can switch accounts. Every other request is
 checked for a Coder user identity. Anonymous requests are forwarded so Coder
 can serve its login flow. Verified users must be in the administrator or
@@ -71,7 +71,7 @@ they are forwarded to Coder.
 Every workspace must receive:
 
 ```text
-CODER_URL=http://coder-rbac.<namespace>.svc.cluster.local:8080
+CODER_URL=http://coder-policy.<namespace>.svc.cluster.local:8080
 ```
 
 Workspace pods must not be able to reach the `coderd` Service directly. The
@@ -83,7 +83,7 @@ labels used by the actual Coder deployment and workspace templates.
 ```mermaid
 sequenceDiagram
     participant Client
-    participant Proxy as coder-rbac
+    participant Proxy as coder-policy
     participant Gate as Version gate
     participant API as Coder API
 
@@ -142,7 +142,7 @@ The processing order is:
 
 The proxy uses Go's `Rewrite` API:
 
-- the destination becomes `CODER_RBAC_UPSTREAM_URL`;
+- the destination becomes `CODER_POLICY_UPSTREAM_URL`;
 - the incoming `Host` is preserved;
 - `X-Forwarded-For`, `X-Forwarded-Host`, and `X-Forwarded-Proto` are rebuilt;
 - immediate flushing supports streaming responses;
@@ -152,7 +152,7 @@ The proxy uses Go's `Rewrite` API:
 ## Version gate
 
 At startup, the proxy requests `/api/v2/buildinfo`. The reported version must
-start with `CODER_RBAC_EXPECTED_VERSION_PREFIX`, such as `v2.35.`.
+start with `CODER_POLICY_EXPECTED_VERSION_PREFIX`, such as `v2.35.`.
 
 - An initial check failure prevents the servers from starting.
 - The version is checked again at the configured interval.
@@ -189,28 +189,28 @@ The local lab uses separate control and workspace networks:
 
 ```mermaid
 flowchart TB
-    subgraph Control["coder-rbac-control"]
+    subgraph Control["coder-policy-control"]
         PostgreSQL
         Coder
         Bootstrap
-        ProxyControl["coder-rbac"]
+        ProxyControl["coder-policy"]
     end
-    subgraph WorkspaceNet["coder-rbac-workspace"]
+    subgraph WorkspaceNet["coder-policy-workspace"]
         WorkspaceDemo["demo workspace"]
-        ProxyWorkspace["coder-rbac"]
+        ProxyWorkspace["coder-policy"]
     end
     ProxyControl --- ProxyWorkspace
 ```
 
-The workspace cannot resolve the `coder` service. Only `coder-rbac` is attached
+The workspace cannot resolve the `coder` service. Only `coder-policy` is attached
 to both networks.
 
 ### Kubernetes
 
 Kubernetes isolation requires two complementary directions:
 
-- workspace egress permits cluster DNS and the `coder-rbac` proxy port;
-- `coderd` ingress permits `coder-rbac` and explicitly required components.
+- workspace egress permits cluster DNS and the `coder-policy` proxy port;
+- `coderd` ingress permits `coder-policy` and explicitly required components.
 
 NetworkPolicies are additive. Another permissive policy can invalidate the
 intended boundary.

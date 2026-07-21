@@ -3,7 +3,7 @@ SHELL_SCRIPTS := $(shell find dev -type f -name '*.sh' -print)
 .PHONY: build test test-race vet fmt-check staticcheck vulncheck shellcheck docs-check helm-check compose-check quality check
 
 build:
-	go build -o bin/coder-rbac ./cmd/coder-rbac
+	go build -o bin/coder-policy ./cmd/coder-policy
 
 test:
 	go test ./...
@@ -34,9 +34,9 @@ docs-check: node_modules/.package-lock.json
 	go test ./internal/quality -count=1
 
 helm-check:
-	helm lint charts/coder-rbac -f charts/coder-rbac/ci/values.yaml
-	helm template coder-rbac charts/coder-rbac -f charts/coder-rbac/ci/values.yaml >/dev/null
-	@if helm template coder-rbac charts/coder-rbac -f charts/coder-rbac/ci/values.yaml \
+	helm lint charts/coder-policy -f charts/coder-policy/ci/values.yaml
+	helm template coder-policy charts/coder-policy -f charts/coder-policy/ci/values.yaml >/dev/null
+	@if helm template coder-policy charts/coder-policy -f charts/coder-policy/ci/values.yaml \
 		--set-string 'config.allowedUserIDs[0]=legacy' >/dev/null 2>&1; then \
 		echo "legacy config.allowedUserIDs was unexpectedly accepted" >&2; \
 		exit 1; \

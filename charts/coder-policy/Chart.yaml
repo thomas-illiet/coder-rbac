@@ -1,5 +1,5 @@
 apiVersion: v2
-name: coder-rbac
+name: coder-policy
 description: Policy-enforcing reverse proxy for Coder
 type: application
 version: 0.1.0

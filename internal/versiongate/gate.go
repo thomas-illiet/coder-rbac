@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thomas-illiet/coder-rbac/internal/coder"
+	"coder-policy/internal/coder"
 )
 
 // buildInfoClient is the Coder API capability required by the version gate.

@@ -9,12 +9,12 @@ import (
 // TestHostClassifier verifies public, internal, wildcard, and unknown host classification.
 func TestHostClassifier(t *testing.T) {
 	publicURL, _ := url.Parse("https://coder.example.com")
-	classifier := NewHostClassifier(publicURL, "*.apps.example.com", []string{"coder-rbac", "coder-rbac.coder.svc.cluster.local:8080"})
+	classifier := NewHostClassifier(publicURL, "*.apps.example.com", []string{"coder-policy", "coder-policy.coder.svc.cluster.local:8080"})
 	tests := map[string]HostKind{
 		"coder.example.com":                         HostMain,
 		"coder.example.com:443":                     HostMain,
-		"coder-rbac":                                HostInternal,
-		"coder-rbac.coder.svc.cluster.local:8080":   HostInternal,
+		"coder-policy":                              HostInternal,
+		"coder-policy.coder.svc.cluster.local:8080": HostInternal,
 		"app--workspace--user.apps.example.com":     HostWildcard,
 		"app--workspace--user.apps.example.com:443": HostWildcard,
 		"apps.example.com":                          HostUnknown,

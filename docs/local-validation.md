@@ -9,7 +9,7 @@ outside Coder and from a real workspace container.
 | --- | --- | --- |
 | `postgres` | Coder database | None |
 | `coder` | Coder 2.35.2 | None |
-| `coder-rbac` | Policy proxy | `7080`, `7081`, and `7090` |
+| `coder-policy` | Policy proxy | `7080`, `7081`, and `7090` |
 | `bootstrap` | Creates users, template, and workspace | None; exits successfully |
 | `coder-admin-demo` | Workspace created by Coder | None |
 
@@ -49,15 +49,15 @@ The `bootstrap` service must finish with `Exited (0)`. It:
 - Coder: [http://coder.localhost:7080](http://coder.localhost:7080)
 - Prometheus: [http://127.0.0.1:7090/metrics](http://127.0.0.1:7090/metrics)
 - Administrator email: `admin@example.com`
-- Administrator password: `CoderRbac123!`
+- Administrator password: `CoderPolicy123!`
 - Administrator username: `admin`
 - Allowed restricted account: `user@example.com` / `CoderUser123!`
 - Blocked account: `blocked@example.com` / `CoderBlocked123!`
 
 These credentials are only for the local lab. The `admin` account is configured
-in `CODER_RBAC_ADMIN_USERNAMES` and can create, delete, and configure
+in `CODER_POLICY_ADMIN_USERNAMES` and can create, delete, and configure
 workspaces. The `user` account is admitted through
-`CODER_RBAC_ALLOWED_USERNAMES` and remains subject to the complete workspace
+`CODER_POLICY_ALLOWED_USERNAMES` and remains subject to the complete workspace
 policy. The `blocked` account can authenticate natively with Coder but every
 subsequent authenticated request through the proxy is denied.
 
@@ -86,7 +86,7 @@ The script checks:
 - the deprecated creation route remains unblocked;
 - the workspace is absent from the control network;
 - the workspace cannot resolve `coder` directly;
-- the workspace has `CODER_URL=http://coder-rbac:8080`;
+- the workspace has `CODER_URL=http://coder-policy:8080`;
 - `coder list` works from inside the workspace;
 - the CLI identity is resolved as `user` and its password/profile API requests
   are rejected from inside the workspace;
@@ -95,20 +95,20 @@ The script checks:
 - the unlisted user is rejected on the wildcard application;
 - wildcard API access is hidden with `404`;
 - an unknown host is rejected with `421`;
-- coder-rbac metrics exist only on the dedicated listener.
+- coder-policy metrics exist only on the dedicated listener.
 
 Optional script variables are:
 
 | Variable | Default |
 | --- | --- |
-| `CODER_RBAC_LOCAL_URL` | `http://coder.localhost:7080` |
-| `CODER_RBAC_LOCAL_METRICS_URL` | `http://127.0.0.1:7090/metrics` |
-| `CODER_RBAC_LOCAL_WILDCARD_URL` | Calculated from the Coder application |
-| `CODER_RBAC_ADMIN_USERNAMES` | Value of `CODER_BOOTSTRAP_USERNAME`, normally `admin` |
-| `CODER_RBAC_ALLOWED_USERNAMES` | Value of `CODER_RESTRICTED_USERNAME`, normally `user` |
+| `CODER_POLICY_LOCAL_URL` | `http://coder.localhost:7080` |
+| `CODER_POLICY_LOCAL_METRICS_URL` | `http://127.0.0.1:7090/metrics` |
+| `CODER_POLICY_LOCAL_WILDCARD_URL` | Calculated from the Coder application |
+| `CODER_POLICY_ADMIN_USERNAMES` | Value of `CODER_BOOTSTRAP_USERNAME`, normally `admin` |
+| `CODER_POLICY_ALLOWED_USERNAMES` | Value of `CODER_RESTRICTED_USERNAME`, normally `user` |
 | `CODER_BOOTSTRAP_EMAIL` | `admin@example.com` |
 | `CODER_BOOTSTRAP_USERNAME` | `admin` |
-| `CODER_BOOTSTRAP_PASSWORD` | `CoderRbac123!` |
+| `CODER_BOOTSTRAP_PASSWORD` | `CoderPolicy123!` |
 | `CODER_BLOCKED_EMAIL` | `blocked@example.com` |
 | `CODER_BLOCKED_USERNAME` | `blocked` |
 | `CODER_BLOCKED_PASSWORD` | `CoderBlocked123!` |
@@ -120,8 +120,8 @@ docker inspect coder-admin-demo \
   --format '{{json .NetworkSettings.Networks}}' | jq
 ```
 
-The result must contain `coder-rbac-workspace` and must not contain
-`coder-rbac-control`.
+The result must contain `coder-policy-workspace` and must not contain
+`coder-policy-control`.
 
 Direct-resolution test:
 
@@ -155,7 +155,7 @@ by the proxy.
 
 ```shell
 docker compose ps -a
-docker compose logs --since=10m coder-rbac coder
+docker compose logs --since=10m coder-policy coder
 docker ps --filter label=coder.workspace_name=demo
 curl -fsS http://127.0.0.1:7081/readyz | jq
 ```
@@ -163,7 +163,7 @@ curl -fsS http://127.0.0.1:7081/readyz | jq
 ## Rebuild only the proxy
 
 ```shell
-docker compose up --build -d --no-deps coder-rbac
+docker compose up --build -d --no-deps coder-policy
 ./dev/local/validate.sh
 ```
 

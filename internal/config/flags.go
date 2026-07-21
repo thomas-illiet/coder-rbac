@@ -37,7 +37,7 @@ func RegisterFlags(flags *pflag.FlagSet) {
 	flags.Int64("max-inspection-body-bytes", defaultMaxInspectionBytes, "Maximum request body inspected by policy")
 }
 
-// NewViper creates a Viper instance with coder-rbac defaults, environment mapping, and flags.
+// NewViper creates a Viper instance with coder-policy defaults, environment mapping, and flags.
 func NewViper(flags *pflag.FlagSet) (*viper.Viper, error) {
 	v := viper.New()
 	v.SetEnvPrefix(EnvPrefix)

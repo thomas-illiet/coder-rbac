@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/thomas-illiet/coder-rbac/internal/coder"
+	"coder-policy/internal/coder"
 )
 
 // buildRequest contains the workspace-build fields inspected by the policy.

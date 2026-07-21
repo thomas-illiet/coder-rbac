@@ -9,15 +9,15 @@ import (
 
 // TestLoadEnvironmentAndFlagPrecedence verifies flags override environment values and defaults.
 func TestLoadEnvironmentAndFlagPrecedence(t *testing.T) {
-	t.Setenv("CODER_RBAC_UPSTREAM_URL", "http://coder:3000")
-	t.Setenv("CODER_RBAC_PUBLIC_URL", "https://coder.example.com")
-	t.Setenv("CODER_RBAC_WILDCARD_ACCESS_HOST", "*.apps.example.com")
-	t.Setenv("CODER_RBAC_INTERNAL_HOSTS", "coder-rbac,coder-rbac.ns.svc.cluster.local")
-	t.Setenv("CODER_RBAC_ADMIN_USERNAMES", "platform-admin, automation, platform-admin")
-	t.Setenv("CODER_RBAC_ALLOWED_USERNAMES", "developer, developer")
-	t.Setenv("CODER_RBAC_EXPECTED_VERSION_PREFIX", "v2.35.")
-	t.Setenv("CODER_RBAC_UPSTREAM_TIMEOUT", "7s")
-	t.Setenv("CODER_RBAC_METRICS_LISTEN_ADDRESS", "127.0.0.1:9191")
+	t.Setenv("CODER_POLICY_UPSTREAM_URL", "http://coder:3000")
+	t.Setenv("CODER_POLICY_PUBLIC_URL", "https://coder.example.com")
+	t.Setenv("CODER_POLICY_WILDCARD_ACCESS_HOST", "*.apps.example.com")
+	t.Setenv("CODER_POLICY_INTERNAL_HOSTS", "coder-policy,coder-policy.ns.svc.cluster.local")
+	t.Setenv("CODER_POLICY_ADMIN_USERNAMES", "platform-admin, automation, platform-admin")
+	t.Setenv("CODER_POLICY_ALLOWED_USERNAMES", "developer, developer")
+	t.Setenv("CODER_POLICY_EXPECTED_VERSION_PREFIX", "v2.35.")
+	t.Setenv("CODER_POLICY_UPSTREAM_TIMEOUT", "7s")
+	t.Setenv("CODER_POLICY_METRICS_LISTEN_ADDRESS", "127.0.0.1:9191")
 
 	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
 	RegisterFlags(flags)
@@ -63,7 +63,7 @@ func TestLoadEnvironmentAndFlagPrecedence(t *testing.T) {
 
 // TestLoadRejectsLegacyAllowedUserIDs verifies obsolete UUID configuration fails explicitly.
 func TestLoadRejectsLegacyAllowedUserIDs(t *testing.T) {
-	t.Setenv("CODER_RBAC_ALLOWED_USER_IDS", "")
+	t.Setenv("CODER_POLICY_ALLOWED_USER_IDS", "")
 	v, err := NewViper(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -71,9 +71,9 @@ func TestLoadRejectsLegacyAllowedUserIDs(t *testing.T) {
 	v.Set("upstream-url", "http://coder:3000")
 	v.Set("public-url", "https://coder.example.com")
 	v.Set("wildcard-access-host", "*.apps.example.com")
-	v.Set("internal-hosts", "coder-rbac")
+	v.Set("internal-hosts", "coder-policy")
 	v.Set("expected-version-prefix", "v2.35.")
-	if _, err := Load(v); err == nil || err.Error() != "CODER_RBAC_ALLOWED_USER_IDS is no longer supported; use CODER_RBAC_ADMIN_USERNAMES" {
+	if _, err := Load(v); err == nil || err.Error() != "CODER_POLICY_ALLOWED_USER_IDS is no longer supported; use CODER_POLICY_ADMIN_USERNAMES" {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -98,7 +98,7 @@ func TestRegisterFlagsUsesSharedDefaults(t *testing.T) {
 	v.Set("upstream-url", "http://coder:3000")
 	v.Set("public-url", "https://coder.example.com")
 	v.Set("wildcard-access-host", "*.apps.example.com")
-	v.Set("internal-hosts", "coder-rbac")
+	v.Set("internal-hosts", "coder-policy")
 	v.Set("expected-version-prefix", "v2.35.")
 	cfg, err := Load(v)
 	if err != nil {
@@ -121,7 +121,7 @@ func TestLoadNormalizesConfiguredHosts(t *testing.T) {
 	v.Set("upstream-url", "http://coder:3000")
 	v.Set("public-url", "https://coder.example.com")
 	v.Set("wildcard-access-host", " *.APPS.EXAMPLE.COM. ")
-	v.Set("internal-hosts", " CODER-RBAC. , coder-rbac")
+	v.Set("internal-hosts", " CODER-POLICY. , coder-policy")
 	v.Set("expected-version-prefix", "v2.35.")
 	cfg, err := Load(v)
 	if err != nil {
@@ -130,7 +130,7 @@ func TestLoadNormalizesConfiguredHosts(t *testing.T) {
 	if cfg.WildcardAccessHost != "*.apps.example.com" {
 		t.Fatalf("wildcard host = %q", cfg.WildcardAccessHost)
 	}
-	if len(cfg.InternalHosts) != 1 || cfg.InternalHosts[0] != "coder-rbac" {
+	if len(cfg.InternalHosts) != 1 || cfg.InternalHosts[0] != "coder-policy" {
 		t.Fatalf("internal hosts = %#v", cfg.InternalHosts)
 	}
 }
@@ -144,7 +144,7 @@ func TestLoadRejectsSharedListenerPorts(t *testing.T) {
 	v.Set("upstream-url", "http://coder:3000")
 	v.Set("public-url", "https://coder.example.com")
 	v.Set("wildcard-access-host", "*.apps.example.com")
-	v.Set("internal-hosts", "coder-rbac")
+	v.Set("internal-hosts", "coder-policy")
 	v.Set("expected-version-prefix", "v2.35.")
 	v.Set("metrics-listen-address", "127.0.0.1:8080")
 	if _, err := Load(v); err == nil {
@@ -172,7 +172,7 @@ func TestLoadRejectsInvalidSecurityConfiguration(t *testing.T) {
 			v.Set("upstream-url", "http://coder:3000")
 			v.Set("public-url", "https://coder.example.com")
 			v.Set("wildcard-access-host", test.wildcard)
-			v.Set("internal-hosts", "coder-rbac")
+			v.Set("internal-hosts", "coder-policy")
 			v.Set("expected-version-prefix", test.expected)
 			if _, err := Load(v); err == nil {
 				t.Fatal("expected validation error")

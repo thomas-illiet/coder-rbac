@@ -12,7 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/thomas-illiet/coder-rbac/internal/config"
+	"coder-policy/internal/config"
 )
 
 // newTransport constructs the shared upstream HTTP transport.

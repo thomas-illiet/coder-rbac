@@ -2,10 +2,10 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "coder-rbac.fullname" . }}-workspace-egress
+  name: {{ include "coder-policy.fullname" . }}-workspace-egress
   namespace: {{ default .Release.Namespace .Values.networkPolicy.workspaceEgress.namespace }}
   labels:
-    {{- include "coder-rbac.labels" . | nindent 4 }}
+    {{- include "coder-policy.labels" . | nindent 4 }}
 spec:
   podSelector:
     {{- toYaml .Values.networkPolicy.workspaceEgress.podSelector | nindent 4 }}
@@ -17,7 +17,7 @@ spec:
               kubernetes.io/metadata.name: {{ .Release.Namespace }}
           podSelector:
             matchLabels:
-              {{- include "coder-rbac.selectorLabels" . | nindent 14 }}
+              {{- include "coder-policy.selectorLabels" . | nindent 14 }}
       ports:
         - protocol: TCP
           port: {{ .Values.service.proxyPort }}

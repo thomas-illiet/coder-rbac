@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/viper"
 
-	hostutil "github.com/thomas-illiet/coder-rbac/internal/host"
+	hostutil "coder-policy/internal/host"
 )
 
 // Load reads, normalizes, and validates the complete runtime configuration.
@@ -30,8 +30,8 @@ func Load(v *viper.Viper) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("internal-hosts: %w", err)
 	}
-	if _, present := os.LookupEnv("CODER_RBAC_ALLOWED_USER_IDS"); present {
-		return Config{}, fmt.Errorf("CODER_RBAC_ALLOWED_USER_IDS is no longer supported; use CODER_RBAC_ADMIN_USERNAMES")
+	if _, present := os.LookupEnv("CODER_POLICY_ALLOWED_USER_IDS"); present {
+		return Config{}, fmt.Errorf("CODER_POLICY_ALLOWED_USER_IDS is no longer supported; use CODER_POLICY_ADMIN_USERNAMES")
 	}
 	if legacy := strings.TrimSpace(v.GetString("allowed-user-ids")); legacy != "" {
 		return Config{}, fmt.Errorf("allowed-user-ids is no longer supported; use admin-usernames")

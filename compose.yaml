@@ -1,4 +1,4 @@
-name: coder-rbac-local
+name: coder-policy-local
 
 services:
   postgres:
@@ -46,7 +46,7 @@ services:
       - control
     restart: unless-stopped
 
-  coder-rbac:
+  coder-policy:
     build:
       context: .
       args:
@@ -54,17 +54,17 @@ services:
         COMMIT: compose
         BUILD_DATE: local
     environment:
-      CODER_RBAC_UPSTREAM_URL: http://coder:3000
-      CODER_RBAC_PUBLIC_URL: http://coder.localhost:7080
-      CODER_RBAC_WILDCARD_ACCESS_HOST: "*.apps.localhost"
-      CODER_RBAC_INTERNAL_HOSTS: coder-rbac,coder-rbac:8080,localhost,127.0.0.1
-      CODER_RBAC_ADMIN_USERNAMES: ${CODER_RBAC_ADMIN_USERNAMES:-${CODER_BOOTSTRAP_USERNAME:-admin}}
-      CODER_RBAC_ALLOWED_USERNAMES: ${CODER_RBAC_ALLOWED_USERNAMES:-${CODER_RESTRICTED_USERNAME:-user}}
-      CODER_RBAC_EXPECTED_VERSION_PREFIX: v2.35.
-      CODER_RBAC_LISTEN_ADDRESS: :8080
-      CODER_RBAC_HEALTH_LISTEN_ADDRESS: :8081
-      CODER_RBAC_METRICS_LISTEN_ADDRESS: :9090
-      CODER_RBAC_VERSION_CHECK_INTERVAL: 15s
+      CODER_POLICY_UPSTREAM_URL: http://coder:3000
+      CODER_POLICY_PUBLIC_URL: http://coder.localhost:7080
+      CODER_POLICY_WILDCARD_ACCESS_HOST: "*.apps.localhost"
+      CODER_POLICY_INTERNAL_HOSTS: coder-policy,coder-policy:8080,localhost,127.0.0.1
+      CODER_POLICY_ADMIN_USERNAMES: ${CODER_POLICY_ADMIN_USERNAMES:-${CODER_BOOTSTRAP_USERNAME:-admin}}
+      CODER_POLICY_ALLOWED_USERNAMES: ${CODER_POLICY_ALLOWED_USERNAMES:-${CODER_RESTRICTED_USERNAME:-user}}
+      CODER_POLICY_EXPECTED_VERSION_PREFIX: v2.35.
+      CODER_POLICY_LISTEN_ADDRESS: :8080
+      CODER_POLICY_HEALTH_LISTEN_ADDRESS: :8081
+      CODER_POLICY_METRICS_LISTEN_ADDRESS: :9090
+      CODER_POLICY_VERSION_CHECK_INTERVAL: 15s
     depends_on:
       coder:
         condition: service_healthy
@@ -76,7 +76,7 @@ services:
       control: {}
       workspace:
         aliases:
-          - coder-rbac
+          - coder-policy
     restart: unless-stopped
 
   bootstrap:
@@ -85,7 +85,7 @@ services:
     environment:
       CODER_BOOTSTRAP_EMAIL: admin@example.com
       CODER_BOOTSTRAP_USERNAME: ${CODER_BOOTSTRAP_USERNAME:-admin}
-      CODER_BOOTSTRAP_PASSWORD: CoderRbac123!
+      CODER_BOOTSTRAP_PASSWORD: CoderPolicy123!
       CODER_BOOTSTRAP_WORKSPACE: demo
       CODER_RESTRICTED_EMAIL: user@example.com
       CODER_RESTRICTED_USERNAME: user
@@ -108,6 +108,6 @@ volumes:
 
 networks:
   control:
-    name: coder-rbac-control
+    name: coder-policy-control
   workspace:
-    name: coder-rbac-workspace
+    name: coder-policy-workspace

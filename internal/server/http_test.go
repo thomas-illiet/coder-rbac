@@ -85,7 +85,7 @@ func TestMetricsHandlerExposesOnlyMetricsRoute(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("metrics status = %d, want 200", response.Code)
 	}
-	if body := response.Body.String(); !strings.Contains(body, "coder_rbac_coder_version_ready 1") || !strings.Contains(body, "coder_rbac_build_info") {
+	if body := response.Body.String(); !strings.Contains(body, "coder_policy_coder_version_ready 1") || !strings.Contains(body, "coder_policy_build_info") {
 		t.Fatalf("metrics body does not contain readiness and build metrics")
 	}
 

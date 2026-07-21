@@ -14,7 +14,7 @@ docker build \
   --build-arg VERSION=v0.1.0 \
   --build-arg COMMIT="$(git rev-parse HEAD)" \
   --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  -t registry.example.com/platform/coder-rbac:v0.1.0 .
+  -t registry.example.com/platform/coder-policy:v0.1.0 .
 ```
 
 The image conventionally exposes ports `8080`, `8081`, and `9090`, runs as the
@@ -27,14 +27,14 @@ docker run --rm \
   -p 8080:8080 \
   -p 127.0.0.1:8081:8081 \
   -p 127.0.0.1:9090:9090 \
-  -e CODER_RBAC_UPSTREAM_URL=http://host.docker.internal:3000 \
-  -e CODER_RBAC_PUBLIC_URL=http://coder.localhost:8080 \
-  -e 'CODER_RBAC_WILDCARD_ACCESS_HOST=*.apps.localhost' \
-  -e CODER_RBAC_INTERNAL_HOSTS=coder-rbac \
-  -e CODER_RBAC_ADMIN_USERNAMES=platform-admin \
-  -e CODER_RBAC_ALLOWED_USERNAMES=developer \
-  -e CODER_RBAC_EXPECTED_VERSION_PREFIX=v2.35. \
-  registry.example.com/platform/coder-rbac:v0.1.0
+  -e CODER_POLICY_UPSTREAM_URL=http://host.docker.internal:3000 \
+  -e CODER_POLICY_PUBLIC_URL=http://coder.localhost:8080 \
+  -e 'CODER_POLICY_WILDCARD_ACCESS_HOST=*.apps.localhost' \
+  -e CODER_POLICY_INTERNAL_HOSTS=coder-policy \
+  -e CODER_POLICY_ADMIN_USERNAMES=platform-admin \
+  -e CODER_POLICY_ALLOWED_USERNAMES=developer \
+  -e CODER_POLICY_EXPECTED_VERSION_PREFIX=v2.35. \
+  registry.example.com/platform/coder-policy:v0.1.0
 ```
 
 Bind the health and metrics ports only to trusted interfaces. This example uses
@@ -55,7 +55,7 @@ docker compose logs -f bootstrap
 ```
 
 The lab separates `coderd` and the workspace into control and workspace
-networks. `coder-rbac` is the only service attached to both. It is intended for
+networks. `coder-policy` is the only service attached to both. It is intended for
 functional validation, not as a production topology.
 
 See [Local validation](local-validation.md) for prerequisites, credentials,
@@ -81,7 +81,7 @@ Keep the image defaults when adapting the deployment:
 curl -fsS http://127.0.0.1:8081/healthz
 curl -fsS http://127.0.0.1:8081/readyz
 curl -fsS http://127.0.0.1:9090/metrics \
-  | grep '^coder_rbac_coder_version_ready'
+  | grep '^coder_policy_coder_version_ready'
 ```
 
 Also test an upgraded connection, a wildcard application, an allowed workspace

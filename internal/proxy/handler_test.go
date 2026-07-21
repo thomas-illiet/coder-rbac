@@ -17,8 +17,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/thomas-illiet/coder-rbac/internal/coder"
-	"github.com/thomas-illiet/coder-rbac/internal/versiongate"
+	"coder-policy/internal/coder"
+	"coder-policy/internal/versiongate"
 )
 
 // TestHandlerHostRoutingAndWildcardProtection verifies host policy and original Host forwarding.
@@ -48,7 +48,7 @@ func TestHandlerHostRoutingAndWildcardProtection(t *testing.T) {
 		body       string
 	}{
 		{name: "main", host: "coder.example.com", path: "/dashboard", statusCode: http.StatusOK, body: `"forwarded_host":"coder.example.com"`},
-		{name: "internal", host: "coder-rbac.coder.svc.cluster.local:8080", path: "/api/v2/workspaces", statusCode: http.StatusOK, body: "coder-rbac.coder.svc.cluster.local:8080"},
+		{name: "internal", host: "coder-policy.coder.svc.cluster.local:8080", path: "/api/v2/workspaces", statusCode: http.StatusOK, body: "coder-policy.coder.svc.cluster.local:8080"},
 		{name: "wildcard application", host: "code--dev--alice.apps.example.com", path: "/", statusCode: http.StatusOK},
 		{name: "wildcard API", host: "code--dev--alice.apps.example.com", path: "/api/v2/users/me", statusCode: http.StatusNotFound},
 		{name: "encoded wildcard API", host: "code--dev--alice.apps.example.com", path: "/api%252fv2/users/me", statusCode: http.StatusNotFound},
@@ -112,7 +112,7 @@ func TestHandlerEnforcesUserAdmissionAcrossHosts(t *testing.T) {
 	}
 	publicURL, _ := url.Parse("https://coder.example.com")
 	handler := NewHandler(
-		NewHostClassifier(publicURL, "*.apps.example.com", []string{"coder-rbac:8080"}),
+		NewHostClassifier(publicURL, "*.apps.example.com", []string{"coder-policy:8080"}),
 		NewPolicy(client, map[string]struct{}{"admin": {}}, map[string]struct{}{"developer": {}}, 1<<20),
 		gate,
 		newTestReverseProxy(upstreamURL),
@@ -142,7 +142,7 @@ func TestHandlerEnforcesUserAdmissionAcrossHosts(t *testing.T) {
 		{name: "blocked session may reopen login", host: "coder.example.com", method: http.MethodGet, path: "/login", token: "blocked-token", status: http.StatusOK},
 		{name: "blocked session may submit another login", host: "coder.example.com", method: http.MethodPost, path: "/api/v2/users/login", token: "blocked-token", status: http.StatusOK},
 		{name: "blocked session may load login assets", host: "coder.example.com", method: http.MethodGet, path: "/assets/index.js", token: "blocked-token", status: http.StatusOK},
-		{name: "blocked internal", host: "coder-rbac:8080", method: http.MethodGet, path: "/api/v2/workspaces", token: "blocked-token", status: http.StatusForbidden, code: "user_access_forbidden"},
+		{name: "blocked internal", host: "coder-policy:8080", method: http.MethodGet, path: "/api/v2/workspaces", token: "blocked-token", status: http.StatusForbidden, code: "user_access_forbidden"},
 		{name: "allowed wildcard", host: "code--dev--alice.apps.example.com", method: http.MethodGet, path: "/", token: "allowed-token", status: http.StatusOK},
 		{name: "blocked wildcard", host: "code--dev--alice.apps.example.com", method: http.MethodGet, path: "/", token: "blocked-token", status: http.StatusForbidden, code: "user_access_forbidden"},
 		{name: "wildcard control path stays hidden", host: "code--dev--alice.apps.example.com", method: http.MethodGet, path: "/api/v2/users/me", token: "blocked-token", status: http.StatusNotFound},
@@ -250,7 +250,7 @@ func TestHandlerFailsClosedWhenVersionGateIsUnready(t *testing.T) {
 	gate := versiongate.New(client, "v2.35.", time.Minute, logger)
 	publicURL, _ := url.Parse("https://coder.example.com")
 	handler := NewHandler(
-		NewHostClassifier(publicURL, "*.apps.example.com", []string{"coder-rbac"}),
+		NewHostClassifier(publicURL, "*.apps.example.com", []string{"coder-policy"}),
 		NewPolicy(client, nil, nil, 1<<20),
 		gate,
 		newTestReverseProxy(upstreamURL),
@@ -279,7 +279,7 @@ func newReadyTestHandler(t *testing.T, upstream *httptest.Server) http.Handler {
 	publicURL, _ := url.Parse("https://coder.example.com")
 	reverseProxy := newTestReverseProxy(upstreamURL)
 	return NewHandler(
-		NewHostClassifier(publicURL, "*.apps.example.com", []string{"coder-rbac.coder.svc.cluster.local:8080"}),
+		NewHostClassifier(publicURL, "*.apps.example.com", []string{"coder-policy.coder.svc.cluster.local:8080"}),
 		NewPolicy(client, nil, nil, 1<<20),
 		gate,
 		reverseProxy,

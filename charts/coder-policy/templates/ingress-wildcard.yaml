@@ -2,9 +2,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "coder-rbac.fullname" . }}-wildcard
+  name: {{ include "coder-policy.fullname" . }}-wildcard
   labels:
-    {{- include "coder-rbac.labels" . | nindent 4 }}
+    {{- include "coder-policy.labels" . | nindent 4 }}
   {{- with .Values.ingress.wildcard.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -21,7 +21,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "coder-rbac.fullname" . }}
+                name: {{ include "coder-policy.fullname" . }}
                 port:
                   name: http
   {{- if .Values.ingress.wildcard.tls.enabled }}

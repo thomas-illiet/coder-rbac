@@ -1,8 +1,8 @@
-{{- define "coder-rbac.name" -}}
+{{- define "coder-policy.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{- define "coder-rbac.fullname" -}}
+{{- define "coder-policy.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -15,22 +15,22 @@
 {{- end }}
 {{- end }}
 
-{{- define "coder-rbac.labels" -}}
+{{- define "coder-policy.labels" -}}
 helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" }}
-app.kubernetes.io/name: {{ include "coder-rbac.name" . }}
+app.kubernetes.io/name: {{ include "coder-policy.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
-{{- define "coder-rbac.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "coder-rbac.name" . }}
+{{- define "coder-policy.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "coder-policy.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
-{{- define "coder-rbac.serviceAccountName" -}}
+{{- define "coder-policy.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "coder-rbac.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "coder-policy.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}

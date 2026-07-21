@@ -15,27 +15,27 @@ type Metrics struct {
 	rejections *prometheus.CounterVec
 }
 
-// NewMetrics registers and returns the coder-rbac proxy metrics.
+// NewMetrics registers and returns the coder-policy proxy metrics.
 func NewMetrics(registerer prometheus.Registerer) *Metrics {
 	metrics := &Metrics{
 		requests: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: "coder_rbac",
+			Namespace: "coder_policy",
 			Subsystem: "http",
 			Name:      "requests_total",
-			Help:      "Total number of requests handled by coder-rbac.",
+			Help:      "Total number of requests handled by coder-policy.",
 		}, []string{"method", "host_kind", "outcome"}),
 		durations: prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Namespace: "coder_rbac",
+			Namespace: "coder_policy",
 			Subsystem: "http",
 			Name:      "request_duration_seconds",
-			Help:      "Duration of requests handled by coder-rbac.",
+			Help:      "Duration of requests handled by coder-policy.",
 			Buckets:   prometheus.DefBuckets,
 		}, []string{"method", "host_kind", "outcome"}),
 		rejections: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: "coder_rbac",
+			Namespace: "coder_policy",
 			Subsystem: "policy",
 			Name:      "rejections_total",
-			Help:      "Total number of requests rejected by coder-rbac, grouped by stable policy code.",
+			Help:      "Total number of requests rejected by coder-policy, grouped by stable policy code.",
 		}, []string{"code"}),
 	}
 	registerer.MustRegister(metrics.requests, metrics.durations, metrics.rejections)

@@ -10,7 +10,7 @@ POST /api/v2/organizations/{organization}/members/{user}/workspaces
 
 On Coder 2.35.x, it can still invoke workspace-creation logic and bypass the
 primary route restriction. This explicit product decision has a regression test
-that verifies `coder-rbac` does not block the route.
+that verifies `coder-policy` does not block the route.
 
 Consequences include:
 
@@ -64,7 +64,7 @@ assignment and audit its username-to-user-ID mapping.
 
 ## No independent authentication
 
-`coder-rbac` depends entirely on Coder cookies and tokens. It does not validate
+`coder-policy` depends entirely on Coder cookies and tokens. It does not validate
 their signatures locally or issue sessions.
 
 Every request outside native authentication and public assets requires an

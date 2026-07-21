@@ -1,7 +1,7 @@
 # Authorization policy
 
 This document is the canonical reference for the policy enforced by
-`coder-rbac`.
+`coder-policy`.
 
 ## Scope
 
@@ -9,8 +9,8 @@ The workspace policy applies to requests received on the configured public host
 or a declared internal host. Application wildcard hosts use a separate policy
 that hides control-plane paths.
 
-`CODER_RBAC_ADMIN_USERNAMES` contains administrators who are admitted and bypass
-every workspace restriction below. `CODER_RBAC_ALLOWED_USERNAMES` contains
+`CODER_POLICY_ADMIN_USERNAMES` contains administrators who are admitted and bypass
+every workspace restriction below. `CODER_POLICY_ALLOWED_USERNAMES` contains
 standard users who are admitted but remain subject to the policy. Matching is
 exact and case-sensitive against Coder's canonical `username`; UUIDs and email
 addresses are not accepted. Any other authenticated username receives
@@ -121,7 +121,7 @@ The following rules apply:
 ## Request bodies and path normalization
 
 Inspected request bodies are limited by
-`CODER_RBAC_MAX_INSPECTION_BODY_BYTES`, which defaults to 1 MiB. A larger body
+`CODER_POLICY_MAX_INSPECTION_BODY_BYTES`, which defaults to 1 MiB. A larger body
 produces `413 request_too_large`.
 
 The body must contain exactly one valid JSON value. Trailing whitespace is

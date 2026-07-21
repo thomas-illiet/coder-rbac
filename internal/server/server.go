@@ -5,7 +5,7 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/thomas-illiet/coder-rbac/internal/config"
+	"coder-policy/internal/config"
 )
 
 // Run validates the upstream version, starts every HTTP server, and shuts them down gracefully.

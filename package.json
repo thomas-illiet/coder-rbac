@@ -1,5 +1,5 @@
 {
-  "name": "coder-rbac-quality",
+  "name": "coder-policy-quality",
   "private": true,
   "engines": {
     "node": ">=22"

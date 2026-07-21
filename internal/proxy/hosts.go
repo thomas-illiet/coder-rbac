@@ -7,7 +7,7 @@ import (
 	"path"
 	"strings"
 
-	hostutil "github.com/thomas-illiet/coder-rbac/internal/host"
+	hostutil "coder-policy/internal/host"
 )
 
 // HostKind identifies how a request host is allowed to use the proxy.

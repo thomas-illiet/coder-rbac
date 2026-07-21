@@ -1,13 +1,13 @@
 # Kubernetes deployment
 
-This guide installs `coder-rbac` with Helm and establishes the required network
+This guide installs `coder-policy` with Helm and establishes the required network
 boundary around Coder.
 
 ## Prerequisites
 
 - DNS for the main Coder hostname and application wildcard;
 - TLS certificates covering both hostnames;
-- a published `coder-rbac` image accessible to the cluster;
+- a published `coder-policy` image accessible to the cluster;
 - a CNI that enforces Kubernetes NetworkPolicies;
 - verified labels for Coder and workspace pods;
 - an inventory of provisioners, operators, monitoring, registries, Git servers,
@@ -21,7 +21,7 @@ Create `values.production.yaml`:
 replicaCount: 2
 
 image:
-  repository: registry.example.com/platform/coder-rbac
+  repository: registry.example.com/platform/coder-policy
   tag: v0.1.0
 
 config:
@@ -70,15 +70,15 @@ networkPolicy:
 ```
 
 Review all defaults and descriptions in
-[`values.yaml`](../charts/coder-rbac/values.yaml), then validate and install:
+[`values.yaml`](../charts/coder-policy/values.yaml), then validate and install:
 
 ```shell
-helm lint charts/coder-rbac -f values.production.yaml
-helm template coder-rbac charts/coder-rbac \
+helm lint charts/coder-policy -f values.production.yaml
+helm template coder-policy charts/coder-policy \
   --namespace coder \
-  -f values.production.yaml > /tmp/coder-rbac-rendered.yaml
+  -f values.production.yaml > /tmp/coder-policy-rendered.yaml
 
-helm upgrade --install coder-rbac charts/coder-rbac \
+helm upgrade --install coder-policy charts/coder-policy \
   --namespace coder \
   --create-namespace \
   -f values.production.yaml \
@@ -138,7 +138,7 @@ Every workspace container must use the internal proxy Service:
 resource "coder_agent" "main" {
   # Other agent settings are omitted.
   env = {
-    CODER_URL = "http://coder-rbac.coder.svc.cluster.local:8080"
+    CODER_URL = "http://coder-policy.coder.svc.cluster.local:8080"
   }
 }
 ```
@@ -149,7 +149,7 @@ When a template defines container variables directly:
 resource "docker_container" "workspace" {
   # Other container settings are omitted.
   env = [
-    "CODER_URL=http://coder-rbac.coder.svc.cluster.local:8080",
+    "CODER_URL=http://coder-policy.coder.svc.cluster.local:8080",
   ]
 }
 ```
@@ -164,7 +164,7 @@ URL, never through the direct `coderd` Service.
 By default, the chart selects pods with the `coder.com/workspace_id` label and
 allows:
 
-- TCP traffic to the `coder-rbac` proxy port;
+- TCP traffic to the `coder-policy` proxy port;
 - UDP and TCP port 53 to the selected cluster DNS pods;
 - entries configured in `additionalEgress`.
 
@@ -175,7 +175,7 @@ intentionally restricted.
 ### Coder ingress
 
 By default, the chart selects `app.kubernetes.io/name=coder` and permits
-`coder-rbac`. Add external provisioners, operators, and other trusted Coder
+`coder-policy`. Add external provisioners, operators, and other trusted Coder
 components through `additionalIngress`.
 
 ### Multiple namespaces
@@ -199,18 +199,18 @@ policy insufficient. Verify enforcement from a real selected workspace pod.
 ## Post-deployment checks
 
 ```shell
-kubectl rollout status deployment/coder-rbac -n coder
+kubectl rollout status deployment/coder-policy -n coder
 kubectl get pods,svc,ingress,networkpolicy -n coder
-kubectl port-forward -n coder svc/coder-rbac 18081:8081 19090:9090
+kubectl port-forward -n coder svc/coder-policy 18081:8081 19090:9090
 curl -fsS http://127.0.0.1:18081/readyz
 curl -fsS http://127.0.0.1:19090/metrics \
-  | grep coder_rbac_coder_version_ready
+  | grep coder_policy_coder_version_ready
 ```
 
 From a real workspace:
 
 ```shell
-test "$CODER_URL" = "http://coder-rbac.coder.svc.cluster.local:8080"
+test "$CODER_URL" = "http://coder-policy.coder.svc.cluster.local:8080"
 coder list
 coder rename <workspace> <new-name>  # Must fail.
 curl --connect-timeout 3 http://coder.coder.svc.cluster.local  # Must fail at the network layer.
@@ -223,8 +223,8 @@ operations, metrics, and alerts.
 ## Rollback
 
 ```shell
-helm history coder-rbac -n coder
-helm rollback coder-rbac <revision> -n coder --wait
+helm history coder-policy -n coder
+helm rollback coder-policy <revision> -n coder --wait
 ```
 
 A rolled-back proxy whose policy is incompatible with the active Coder version

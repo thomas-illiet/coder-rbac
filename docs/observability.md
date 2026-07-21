@@ -57,13 +57,13 @@ The process writes JSON logs to stderr through `slog`. Important messages are:
 Kubernetes example:
 
 ```shell
-kubectl logs -n coder deployment/coder-rbac --since=15m
+kubectl logs -n coder deployment/coder-policy --since=15m
 ```
 
 Compose example:
 
 ```shell
-docker compose logs --since=15m coder-rbac
+docker compose logs --since=15m coder-policy
 ```
 
 ## Standard metrics
@@ -76,12 +76,12 @@ The registry contains Go and process collectors, including:
 - `process_resident_memory_bytes`;
 - `process_open_fds` when supported by the platform.
 
-## coder-rbac metrics
+## coder-policy metrics
 
 ### Build information
 
 ```text
-coder_rbac_build_info{version="...",commit="..."} 1
+coder_policy_build_info{version="...",commit="..."} 1
 ```
 
 Use this metric to inventory the versions actually deployed.
@@ -89,7 +89,7 @@ Use this metric to inventory the versions actually deployed.
 ### Version gate
 
 ```text
-coder_rbac_coder_version_ready 1
+coder_policy_coder_version_ready 1
 ```
 
 `1` means that the latest check was compatible. `0` means that the proxy is
@@ -98,7 +98,7 @@ failing closed.
 ### Requests
 
 ```text
-coder_rbac_http_requests_total{method="POST",host_kind="main",outcome="rejected"} 12
+coder_policy_http_requests_total{method="POST",host_kind="main",outcome="rejected"} 12
 ```
 
 | Label | Values |
@@ -113,9 +113,9 @@ that Coder returned a success status.
 ### Latency
 
 ```text
-coder_rbac_http_request_duration_seconds_bucket
-coder_rbac_http_request_duration_seconds_sum
-coder_rbac_http_request_duration_seconds_count
+coder_policy_http_request_duration_seconds_bucket
+coder_policy_http_request_duration_seconds_sum
+coder_policy_http_request_duration_seconds_count
 ```
 
 Latency covers policy evaluation and, for a forwarded request, upstream
@@ -124,7 +124,7 @@ processing time.
 ### Rejections
 
 ```text
-coder_rbac_policy_rejections_total{code="workspace_rename_forbidden"} 4
+coder_policy_policy_rejections_total{code="workspace_rename_forbidden"} 4
 ```
 
 The `code` label uses the stable codes in
@@ -137,11 +137,11 @@ Static scrape example:
 
 ```yaml
 scrape_configs:
-  - job_name: coder-rbac
+  - job_name: coder-policy
     metrics_path: /metrics
     static_configs:
       - targets:
-          - coder-rbac.coder.svc.cluster.local:9090
+          - coder-policy.coder.svc.cluster.local:9090
 ```
 
 The chart does not install a `ServiceMonitor` or `PodMonitor`. When using
@@ -152,13 +152,13 @@ port. For example:
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: coder-rbac
+  name: coder-policy
   namespace: coder
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: coder-rbac
-      app.kubernetes.io/instance: coder-rbac
+      app.kubernetes.io/name: coder-policy
+      app.kubernetes.io/instance: coder-policy
   endpoints:
     - port: metrics
       path: /metrics
@@ -172,19 +172,19 @@ Verify the rendered chart labels before applying this example.
 ### Unavailable target
 
 ```promql
-up{job="coder-rbac"} == 0
+up{job="coder-policy"} == 0
 ```
 
 ### Incompatible or unknown Coder version
 
 ```promql
-max by (instance) (coder_rbac_coder_version_ready) == 0
+max by (instance) (coder_policy_coder_version_ready) == 0
 ```
 
 ### Rejection increase
 
 ```promql
-sum by (code) (rate(coder_rbac_policy_rejections_total[10m])) > 0.1
+sum by (code) (rate(coder_policy_policy_rejections_total[10m])) > 0.1
 ```
 
 Tune the threshold to normal usage. Creation rejections may be expected when
@@ -196,7 +196,7 @@ the UI still displays actions that the proxy denies.
 histogram_quantile(
   0.95,
   sum by (le, host_kind, outcome) (
-    rate(coder_rbac_http_request_duration_seconds_bucket[5m])
+    rate(coder_policy_http_request_duration_seconds_bucket[5m])
   )
 )
 ```
@@ -204,7 +204,7 @@ histogram_quantile(
 ### Restarts
 
 ```promql
-increase(kube_pod_container_status_restarts_total{container="coder-rbac"}[15m]) > 0
+increase(kube_pod_container_status_restarts_total{container="coder-policy"}[15m]) > 0
 ```
 
 ## Minimum dashboard

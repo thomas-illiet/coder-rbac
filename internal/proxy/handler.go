@@ -8,7 +8,7 @@ import (
 	"net/http/httputil"
 	"time"
 
-	"github.com/thomas-illiet/coder-rbac/internal/versiongate"
+	"coder-policy/internal/versiongate"
 )
 
 // Handler enforces host, version, and user policies before forwarding requests.

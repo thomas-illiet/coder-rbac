@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/thomas-illiet/coder-rbac/internal/config"
-	"github.com/thomas-illiet/coder-rbac/internal/server"
+	"coder-policy/internal/config"
+	"coder-policy/internal/server"
 )
 
 // newServeCommand builds the command that validates configuration and runs the proxy.

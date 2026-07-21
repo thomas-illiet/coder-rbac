@@ -4,7 +4,7 @@ Please report vulnerabilities privately to the repository owner instead of openi
 
 The security boundary assumes:
 
-- all public, wildcard, agent, and workspace-side Coder traffic traverses `coder-rbac`;
+- all public, wildcard, agent, and workspace-side Coder traffic traverses `coder-policy`;
 - no other Ingress, LoadBalancer, port-forward, Service, or additive NetworkPolicy lets untrusted workspaces reach `coderd` directly;
 - the configured Coder version matches the policy pin;
 - administrator and allowed usernames are reviewed configuration and mapped to

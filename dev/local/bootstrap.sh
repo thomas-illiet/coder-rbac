@@ -4,7 +4,7 @@ set -eu
 coder_url=http://coder:3000
 email=${CODER_BOOTSTRAP_EMAIL:-admin@example.com}
 username=${CODER_BOOTSTRAP_USERNAME:-admin}
-password=${CODER_BOOTSTRAP_PASSWORD:-CoderRbac123!}
+password=${CODER_BOOTSTRAP_PASSWORD:-CoderPolicy123!}
 workspace=${CODER_BOOTSTRAP_WORKSPACE:-demo}
 restricted_email=${CODER_RESTRICTED_EMAIL:-user@example.com}
 restricted_username=${CODER_RESTRICTED_USERNAME:-user}
@@ -74,7 +74,7 @@ echo "local Coder environment is ready"
 echo "URL: http://coder.localhost:7080"
 echo "Login: $email"
 echo "Password: $password"
-echo "Administrator username for CODER_RBAC_ADMIN_USERNAMES: $username"
+echo "Administrator username for CODER_POLICY_ADMIN_USERNAMES: $username"
 echo "Restricted validation login: $restricted_email"
 echo "Restricted validation password: $restricted_password"
 echo "Blocked validation login: $blocked_email"

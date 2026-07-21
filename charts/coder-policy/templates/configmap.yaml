@@ -1,0 +1,25 @@
+{{- $upstream := required "config.upstreamURL is required" .Values.config.upstreamURL -}}
+{{- $public := required "config.publicURL is required" .Values.config.publicURL -}}
+{{- $wildcard := required "config.wildcardAccessHost is required" .Values.config.wildcardAccessHost -}}
+{{- $serviceName := include "coder-policy.fullname" . -}}
+{{- $builtInHosts := list $serviceName (printf "%s.%s" $serviceName .Release.Namespace) (printf "%s.%s.svc" $serviceName .Release.Namespace) (printf "%s.%s.svc.cluster.local" $serviceName .Release.Namespace) -}}
+{{- $internalHosts := concat $builtInHosts .Values.config.internalHosts -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "coder-policy.fullname" . }}
+  labels:
+    {{- include "coder-policy.labels" . | nindent 4 }}
+data:
+  CODER_POLICY_UPSTREAM_URL: {{ $upstream | quote }}
+  CODER_POLICY_PUBLIC_URL: {{ $public | quote }}
+  CODER_POLICY_WILDCARD_ACCESS_HOST: {{ $wildcard | quote }}
+  CODER_POLICY_INTERNAL_HOSTS: {{ join "," $internalHosts | quote }}
+  CODER_POLICY_EXPECTED_VERSION_PREFIX: {{ required "config.expectedVersionPrefix is required" .Values.config.expectedVersionPrefix | quote }}
+  CODER_POLICY_LISTEN_ADDRESS: {{ printf ":%v" .Values.service.proxyPort | quote }}
+  CODER_POLICY_HEALTH_LISTEN_ADDRESS: {{ printf ":%v" .Values.service.healthPort | quote }}
+  CODER_POLICY_METRICS_LISTEN_ADDRESS: {{ printf ":%v" .Values.service.metricsPort | quote }}
+  CODER_POLICY_VERSION_CHECK_INTERVAL: {{ .Values.config.versionCheckInterval | quote }}
+  CODER_POLICY_UPSTREAM_TIMEOUT: {{ .Values.config.upstreamTimeout | quote }}
+  CODER_POLICY_SHUTDOWN_TIMEOUT: {{ .Values.config.shutdownTimeout | quote }}
+  CODER_POLICY_MAX_INSPECTION_BODY_BYTES: {{ printf "%d" (int64 .Values.config.maxInspectionBodyBytes) | quote }}

@@ -38,7 +38,7 @@ data "coder_parameter" "cpu" {
 data "coder_parameter" "debug" {
   name         = "debug"
   display_name = "Debug for one build"
-  description  = "Ephemeral parameter used to validate that coder-rbac rejects value changes."
+  description  = "Ephemeral parameter used to validate that coder-policy rejects value changes."
   type         = "bool"
   default      = "false"
   mutable      = true
@@ -50,13 +50,13 @@ resource "coder_agent" "main" {
   os   = "linux"
 
   startup_script = <<-EOT
-    mkdir -p /tmp/coder-rbac-app
-    printf '%s\n' '<!doctype html><title>coder-rbac wildcard</title><h1>Wildcard application reached through coder-rbac</h1>' > /tmp/coder-rbac-app/index.html
-    exec python3 -m http.server 13337 --directory /tmp/coder-rbac-app
+    mkdir -p /tmp/coder-policy-app
+    printf '%s\n' '<!doctype html><title>coder-policy wildcard</title><h1>Wildcard application reached through coder-policy</h1>' > /tmp/coder-policy-app/index.html
+    exec python3 -m http.server 13337 --directory /tmp/coder-policy-app
   EOT
 
   env = {
-    CODER_URL           = "http://coder-rbac:8080"
+    CODER_URL           = "http://coder-policy:8080"
     CODER_SESSION_TOKEN = data.coder_workspace_owner.me.session_token
     DEMO_CPU            = data.coder_parameter.cpu.value
     DEMO_DEBUG          = data.coder_parameter.debug.value
@@ -100,19 +100,19 @@ resource "docker_container" "workspace" {
   entrypoint = [
     "sh",
     "-c",
-    replace(coder_agent.main.init_script, "http://coder.localhost:7080", "http://coder-rbac:8080"),
+    replace(coder_agent.main.init_script, "http://coder.localhost:7080", "http://coder-policy:8080"),
   ]
 
   env = [
     "CODER_AGENT_TOKEN=${coder_agent.main.token}",
-    "CODER_URL=http://coder-rbac:8080",
+    "CODER_URL=http://coder-policy:8080",
     "CODER_SESSION_TOKEN=${data.coder_workspace_owner.me.session_token}",
     "DEMO_CPU=${data.coder_parameter.cpu.value}",
     "DEMO_DEBUG=${data.coder_parameter.debug.value}",
   ]
 
   networks_advanced {
-    name = "coder-rbac-workspace"
+    name = "coder-policy-workspace"
   }
 
   volumes {

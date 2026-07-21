@@ -4,7 +4,7 @@ replicaCount: 2
 
 # Container image settings. An empty tag uses the chart appVersion.
 image:
-  repository: ghcr.io/thomas-illiet/coder-rbac
+  repository: ghcr.io/thomas-illiet/coder-policy
   tag: ""
   pullPolicy: IfNotPresent
 
@@ -40,11 +40,11 @@ securityContext:
   readOnlyRootFilesystem: true
   runAsNonRoot: true
 
-# coder-rbac runtime configuration.
+# coder-policy runtime configuration.
 config:
   # Direct internal URL of coderd. Workspace pods must not be able to reach it.
   upstreamURL: ""
-  # Public Coder URL served through coder-rbac, including the scheme.
+  # Public Coder URL served through coder-policy, including the scheme.
   publicURL: ""
   # Application wildcard hostname in *.example.com form, without a scheme or port.
   wildcardAccessHost: ""
@@ -98,7 +98,7 @@ ingress:
 # Fail-closed network boundaries. Kubernetes NetworkPolicies are additive; audit
 # other policies that select the same pods before relying on these defaults.
 networkPolicy:
-  # Restrict selected workspace pods to DNS, coder-rbac, and explicitly added
+  # Restrict selected workspace pods to DNS, coder-policy, and explicitly added
   # destinations. Set namespace when workspaces run outside the release namespace.
   workspaceEgress:
     enabled: true
@@ -118,7 +118,7 @@ networkPolicy:
     # Raw NetworkPolicy egress entries for Git, registries, package mirrors, and
     # any other destinations required by workspaces.
     additionalEgress: []
-  # Restrict selected coderd pods to coder-rbac and explicitly added sources.
+  # Restrict selected coderd pods to coder-policy and explicitly added sources.
   coderIngress:
     enabled: true
     namespace: ""
