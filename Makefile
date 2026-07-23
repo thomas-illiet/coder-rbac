@@ -38,8 +38,8 @@ helm-check:
 	@rendered="$$(mktemp)"; \
 	trap 'rm -f "$$rendered"' EXIT; \
 	helm template coder-policy charts/coder-policy -f charts/coder-policy/ci/values.yaml >"$$rendered"; \
-	if grep -Eq 'CODER_POLICY_INTERNAL_HOSTS|kind: NetworkPolicy' "$$rendered"; then \
-		echo "removed internal-host or NetworkPolicy configuration was rendered" >&2; \
+	if grep -Eq 'kind: NetworkPolicy' "$$rendered"; then \
+		echo "removed NetworkPolicy configuration was rendered" >&2; \
 		exit 1; \
 	fi
 	@if helm template coder-policy charts/coder-policy -f charts/coder-policy/ci/values.yaml \

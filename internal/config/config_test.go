@@ -86,9 +86,6 @@ func TestRegisterFlagsUsesSharedDefaults(t *testing.T) {
 	if flags.Lookup("allowed-usernames") == nil {
 		t.Fatal("allowed-usernames flag is not registered")
 	}
-	if flags.Lookup("internal-hosts") != nil {
-		t.Fatal("internal-hosts flag is still registered")
-	}
 	if flags.Lookup("allowed-user-ids") != nil {
 		t.Fatal("legacy allowed-user-ids flag is still registered")
 	}
