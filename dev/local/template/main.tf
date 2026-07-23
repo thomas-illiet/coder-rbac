@@ -56,7 +56,7 @@ resource "coder_agent" "main" {
   EOT
 
   env = {
-    CODER_URL           = "http://coder-policy:8080"
+    CODER_URL           = "http://coder.localtest.me:7080"
     CODER_SESSION_TOKEN = data.coder_workspace_owner.me.session_token
     DEMO_CPU            = data.coder_parameter.cpu.value
     DEMO_DEBUG          = data.coder_parameter.debug.value
@@ -100,12 +100,12 @@ resource "docker_container" "workspace" {
   entrypoint = [
     "sh",
     "-c",
-    replace(coder_agent.main.init_script, "http://coder.localhost:7080", "http://coder-policy:8080"),
+    coder_agent.main.init_script,
   ]
 
   env = [
     "CODER_AGENT_TOKEN=${coder_agent.main.token}",
-    "CODER_URL=http://coder-policy:8080",
+    "CODER_URL=http://coder.localtest.me:7080",
     "CODER_SESSION_TOKEN=${data.coder_workspace_owner.me.session_token}",
     "DEMO_CPU=${data.coder_parameter.cpu.value}",
     "DEMO_DEBUG=${data.coder_parameter.debug.value}",

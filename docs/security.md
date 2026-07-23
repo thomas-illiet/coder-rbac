@@ -28,7 +28,7 @@ This property depends on all of the following controls:
 - the `coder-policy` binary and image;
 - `coderd` and its database;
 - the Ingress controller and TLS termination;
-- administrators who can change Helm values, Secrets, NetworkPolicies, and
+- administrators who can change Helm values, Secrets, platform networking, and
   templates;
 - provisioners and operators explicitly allowed to reach Coder.
 
@@ -63,7 +63,7 @@ flowchart LR
     TLS --> Proxy["coder-policy boundary"]
     Proxy --> Trusted["Trusted coderd and PostgreSQL network"]
     Admin["Privileged configuration"] --> Proxy
-    Admin --> Network["Ingress, Services, and NetworkPolicies"]
+    Admin --> Network["Ingress, Services, and platform networking"]
 ```
 
 The proxy is not an effective boundary if untrusted clients have another path
@@ -121,7 +121,6 @@ The Compose lab uses HTTP and disables secure cookies only for local validation.
 - a Coder `LoadBalancer` or `NodePort` Service reachable by users;
 - a permanent port-forward distributed as an access method;
 - unrestricted workspace egress to the Coder namespace;
-- an additive allow-all NetworkPolicy selecting the same pods;
 - alternate DNS that resolves to a direct Coder endpoint.
 
 ### Required evidence
@@ -129,14 +128,14 @@ The Compose lab uses HTTP and disables secure cookies only for local validation.
 Run these checks from a real workspace:
 
 ```shell
-coder list                         # Succeeds through coder-policy.
-getent hosts coder-policy            # Succeeds.
+test "$CODER_URL" = "https://coder.example.com"
+coder list                         # Succeeds through the public proxy URL.
 getent hosts coder                 # Fails or resolves to an unreachable target.
 curl --connect-timeout 3 http://coder.coder.svc.cluster.local  # Fails at the network layer.
 ```
 
-YAML inspection is not sufficient evidence. Test from a pod that is actually
-selected by the NetworkPolicy.
+Configuration inspection is not sufficient evidence. Test from a real
+workspace using the same DNS and network path as production workloads.
 
 ## Administrator and allowed usernames
 
@@ -166,7 +165,8 @@ consistent identity governance, not only on configuration values.
 private observability network:
 
 - Compose publishes it on `127.0.0.1`;
-- Kubernetes should restrict it through NetworkPolicy or scraper configuration;
+- Kubernetes should restrict it through scraper configuration or platform
+  network controls;
 - never create a public Ingress for the `metrics` port.
 
 Metric labels use bounded sets to prevent user-controlled cardinality. Metrics
@@ -188,8 +188,9 @@ client response. Never add cookies, tokens, or complete request bodies to logs.
 - [ ] The container is non-root, read-only, and has no Linux capabilities.
 - [ ] Main and wildcard URLs terminate TLS.
 - [ ] Coder has no direct public endpoint.
-- [ ] Every workspace receives the internal proxy `CODER_URL`.
-- [ ] NetworkPolicies are tested from a real workspace.
+- [ ] Every workspace receives `CODER_POLICY_PUBLIC_URL` as `CODER_URL`.
+- [ ] Public proxy connectivity and direct `coderd` isolation are tested from a
+      real workspace.
 - [ ] Provisioners and operators are allowed explicitly, without a global rule.
 - [ ] Administrator and allowed usernames and their account mappings are
       reviewed on every Coder instance.

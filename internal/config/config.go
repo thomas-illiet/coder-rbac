@@ -14,7 +14,6 @@ type Config struct {
 	UpstreamURL            *url.URL
 	PublicURL              *url.URL
 	WildcardAccessHost     string
-	InternalHosts          []string
 	AdminUsernames         map[string]struct{}
 	AllowedUsernames       map[string]struct{}
 	ExpectedVersionPrefix  string

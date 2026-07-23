@@ -22,7 +22,6 @@ their environment equivalents use underscores.
 | `CODER_POLICY_UPSTREAM_URL` | `--upstream-url` | URL | — | Yes | Absolute `http` or `https` URL without credentials, query, fragment, or path |
 | `CODER_POLICY_PUBLIC_URL` | `--public-url` | URL | — | Yes | Same validation; must be the public URL served by the proxy |
 | `CODER_POLICY_WILDCARD_ACCESS_HOST` | `--wildcard-access-host` | host | — | Yes | `*.example.com` form without a scheme or port |
-| `CODER_POLICY_INTERNAL_HOSTS` | `--internal-hosts` | CSV | — | Yes | At least one host; `/`, `?`, `*`, and `#` are forbidden |
 | `CODER_POLICY_ADMIN_USERNAMES` | `--admin-usernames` | username CSV | empty | No | Admitted administrators; exact, case-sensitive canonical usernames |
 | `CODER_POLICY_ALLOWED_USERNAMES` | `--allowed-usernames` | username CSV | empty | No | Admitted standard users; exact, case-sensitive canonical usernames |
 | `CODER_POLICY_EXPECTED_VERSION_PREFIX` | `--expected-version-prefix` | string | — | Yes | Non-empty and starts with `v` |
@@ -42,7 +41,6 @@ Durations use Go syntax, for example `500ms`, `15s`, `1m`, or `2h`.
 export CODER_POLICY_UPSTREAM_URL=http://coder.coder.svc.cluster.local:80
 export CODER_POLICY_PUBLIC_URL=https://coder.example.com
 export CODER_POLICY_WILDCARD_ACCESS_HOST='*.apps.example.com'
-export CODER_POLICY_INTERNAL_HOSTS='coder-policy,coder-policy.coder.svc.cluster.local'
 export CODER_POLICY_ADMIN_USERNAMES='platform-admin,automation'
 export CODER_POLICY_ALLOWED_USERNAMES='developer,contractor'
 export CODER_POLICY_EXPECTED_VERSION_PREFIX='v2.35.'
@@ -60,7 +58,6 @@ coder-policy serve \
   --upstream-url=http://coder.coder.svc.cluster.local:80 \
   --public-url=https://coder.example.com \
   --wildcard-access-host='*.apps.example.com' \
-  --internal-hosts='coder-policy,coder-policy.coder.svc.cluster.local' \
   --admin-usernames='platform-admin,automation' \
   --allowed-usernames='developer,contractor' \
   --expected-version-prefix='v2.35.' \
@@ -77,7 +74,7 @@ Coder and proxy settings must remain consistent:
 | --- | --- |
 | Coder `CODER_ACCESS_URL` | Same URL as `CODER_POLICY_PUBLIC_URL` |
 | Coder `CODER_WILDCARD_ACCESS_URL` | Same host as `CODER_POLICY_WILDCARD_ACCESS_HOST` |
-| Workspace `CODER_URL` | Internal `coder-policy` Service URL |
+| Workspace `CODER_URL` | Same URL as `CODER_POLICY_PUBLIC_URL` |
 | Proxy `CODER_POLICY_UPSTREAM_URL` | Direct internal `coderd` URL, unreachable from workspaces |
 
 For example:
@@ -85,7 +82,7 @@ For example:
 ```text
 CODER_ACCESS_URL=https://coder.example.com
 CODER_WILDCARD_ACCESS_URL=*.apps.example.com
-CODER_URL=http://coder-policy.coder.svc.cluster.local:8080
+CODER_URL=https://coder.example.com
 CODER_POLICY_UPSTREAM_URL=http://coder.coder.svc.cluster.local:80
 ```
 
@@ -181,7 +178,6 @@ coder-policy completion powershell
 | `config.upstreamURL` | `CODER_POLICY_UPSTREAM_URL` |
 | `config.publicURL` | `CODER_POLICY_PUBLIC_URL` |
 | `config.wildcardAccessHost` | `CODER_POLICY_WILDCARD_ACCESS_HOST` |
-| `config.internalHosts` | Added to calculated internal Service names |
 | `config.adminUsernames` | `CODER_POLICY_ADMIN_USERNAMES` in a Secret |
 | `config.allowedUsernames` | `CODER_POLICY_ALLOWED_USERNAMES` in a Secret |
 | `config.expectedVersionPrefix` | `CODER_POLICY_EXPECTED_VERSION_PREFIX` |

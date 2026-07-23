@@ -18,8 +18,6 @@ const (
 	HostUnknown HostKind = iota
 	// HostMain represents the public Coder access host.
 	HostMain
-	// HostInternal represents an internal proxy Service host.
-	HostInternal
 	// HostWildcard represents a workspace application subdomain.
 	HostWildcard
 )
@@ -29,8 +27,6 @@ func (k HostKind) String() string {
 	switch k {
 	case HostMain:
 		return "main"
-	case HostInternal:
-		return "internal"
 	case HostWildcard:
 		return "wildcard"
 	default:
@@ -42,22 +38,14 @@ func (k HostKind) String() string {
 type HostClassifier struct {
 	publicHost     string
 	publicHostname string
-	internalHosts  map[string]struct{}
 	wildcardSuffix string
 }
 
-// NewHostClassifier creates a classifier for the public, wildcard, and internal hosts.
-func NewHostClassifier(publicURL *url.URL, wildcard string, internal []string) *HostClassifier {
-	internalHosts := make(map[string]struct{}, len(internal)*2)
-	for _, rawHost := range internal {
-		normalized := hostutil.Normalize(rawHost)
-		internalHosts[normalized] = struct{}{}
-		internalHosts[hostutil.WithoutPort(normalized)] = struct{}{}
-	}
+// NewHostClassifier creates a classifier for the public and wildcard hosts.
+func NewHostClassifier(publicURL *url.URL, wildcard string) *HostClassifier {
 	return &HostClassifier{
 		publicHost:     hostutil.Normalize(publicURL.Host),
 		publicHostname: hostutil.WithoutPort(publicURL.Host),
-		internalHosts:  internalHosts,
 		wildcardSuffix: strings.TrimPrefix(hostutil.Normalize(wildcard), "*"),
 	}
 }
@@ -68,12 +56,6 @@ func (c *HostClassifier) Classify(rawHost string) HostKind {
 	hostname := hostutil.WithoutPort(host)
 	if host == c.publicHost || hostname == c.publicHostname {
 		return HostMain
-	}
-	if _, ok := c.internalHosts[host]; ok {
-		return HostInternal
-	}
-	if _, ok := c.internalHosts[hostname]; ok {
-		return HostInternal
 	}
 	if strings.HasSuffix(hostname, c.wildcardSuffix) && len(hostname) > len(c.wildcardSuffix) {
 		return HostWildcard

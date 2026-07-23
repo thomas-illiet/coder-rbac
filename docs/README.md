@@ -34,8 +34,8 @@ This documentation describes the behavior implemented in this repository.
 
 `coder-policy` is a security boundary only when every path to Coder passes through
 it: the public URL, application wildcard, CLI, agents, and workspace-originated
-traffic. Any Ingress, Service, LoadBalancer, port-forward, or NetworkPolicy that
-makes `coderd` directly reachable allows the proxy policy to be bypassed.
+traffic. Any Ingress, Service, LoadBalancer, port-forward, or platform route
+that makes `coderd` directly reachable allows the proxy policy to be bypassed.
 
 The following deprecated route is an intentional exception:
 

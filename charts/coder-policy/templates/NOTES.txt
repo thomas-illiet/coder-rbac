@@ -5,7 +5,8 @@ Before exposing the deployment:
 2. Set CODER_ACCESS_URL to {{ .Values.config.publicURL }}.
 3. Set CODER_WILDCARD_ACCESS_URL to {{ .Values.config.wildcardAccessHost }}.
 4. Set coder.envUseClusterAccessURL=false in the official Coder chart.
-5. Inject CODER_URL=http://{{ include "coder-policy.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.proxyPort }} into workspace containers.
-6. Audit all existing NetworkPolicies; Kubernetes policies are additive.
+5. Inject CODER_URL={{ .Values.config.publicURL }} into workspace containers.
+6. Ensure workspaces can resolve and reach that public URL.
+7. Enforce outside this chart that workspaces cannot reach coderd directly.
 
 WARNING: POST /api/v2/organizations/{organization}/members/{user}/workspaces is intentionally allowed and can bypass the main workspace-creation restriction on Coder 2.35.x.

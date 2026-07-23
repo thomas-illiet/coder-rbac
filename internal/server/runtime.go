@@ -42,7 +42,7 @@ func newRuntime(cfg config.Config, logger *slog.Logger) *runtime {
 	coderClient := coder.NewClient(cfg.UpstreamURL, policyHTTPClient)
 	gate := versiongate.New(coderClient, cfg.ExpectedVersionPrefix, cfg.VersionCheckInterval, logger)
 	reverseProxy := newReverseProxy(cfg.UpstreamURL, transport, logger)
-	classifier := proxyhandler.NewHostClassifier(cfg.PublicURL, cfg.WildcardAccessHost, cfg.InternalHosts)
+	classifier := proxyhandler.NewHostClassifier(cfg.PublicURL, cfg.WildcardAccessHost)
 	policy := proxyhandler.NewPolicy(coderClient, cfg.AdminUsernames, cfg.AllowedUsernames, cfg.MaxInspectionBodyBytes)
 	registry, proxyMetrics := newMetricsRegistry(gate)
 	handler := proxyhandler.NewHandler(classifier, policy, gate, reverseProxy, logger, proxyMetrics)

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"slices"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -26,10 +25,6 @@ func Load(v *viper.Viper) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	internalHosts, err := parseHosts(v.GetString("internal-hosts"))
-	if err != nil {
-		return Config{}, fmt.Errorf("internal-hosts: %w", err)
-	}
 	if _, present := os.LookupEnv("CODER_POLICY_ALLOWED_USER_IDS"); present {
 		return Config{}, fmt.Errorf("CODER_POLICY_ALLOWED_USER_IDS is no longer supported; use CODER_POLICY_ADMIN_USERNAMES")
 	}
@@ -43,7 +38,6 @@ func Load(v *viper.Viper) (Config, error) {
 		UpstreamURL:            upstream,
 		PublicURL:              publicURL,
 		WildcardAccessHost:     wildcardHost,
-		InternalHosts:          internalHosts,
 		AdminUsernames:         adminUsernames,
 		AllowedUsernames:       allowedUsernames,
 		ExpectedVersionPrefix:  strings.TrimSpace(v.GetString("expected-version-prefix")),
@@ -94,24 +88,6 @@ func normalizeWildcard(raw string) (string, error) {
 		return "", fmt.Errorf("wildcard-access-host must not contain a port")
 	}
 	return raw, nil
-}
-
-// parseHosts parses, validates, sorts, and deduplicates a comma-separated host list.
-func parseHosts(raw string) ([]string, error) {
-	parts := splitCSV(raw)
-	if len(parts) == 0 {
-		return nil, fmt.Errorf("at least one internal host is required")
-	}
-	hosts := make([]string, 0, len(parts))
-	for _, part := range parts {
-		normalized := hostutil.Normalize(part)
-		if normalized == "" || strings.ContainsAny(normalized, "/?*#") {
-			return nil, fmt.Errorf("invalid host %q", part)
-		}
-		hosts = append(hosts, normalized)
-	}
-	slices.Sort(hosts)
-	return slices.Compact(hosts), nil
 }
 
 // parseUsernameSet parses canonical Coder usernames into an exact-match set.

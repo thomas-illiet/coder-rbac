@@ -28,9 +28,8 @@ docker run --rm \
   -p 127.0.0.1:8081:8081 \
   -p 127.0.0.1:9090:9090 \
   -e CODER_POLICY_UPSTREAM_URL=http://host.docker.internal:3000 \
-  -e CODER_POLICY_PUBLIC_URL=http://coder.localhost:8080 \
-  -e 'CODER_POLICY_WILDCARD_ACCESS_HOST=*.apps.localhost' \
-  -e CODER_POLICY_INTERNAL_HOSTS=coder-policy \
+  -e CODER_POLICY_PUBLIC_URL=http://coder.localtest.me:8080 \
+  -e 'CODER_POLICY_WILDCARD_ACCESS_HOST=*.apps.localtest.me' \
   -e CODER_POLICY_ADMIN_USERNAMES=platform-admin \
   -e CODER_POLICY_ALLOWED_USERNAMES=developer \
   -e CODER_POLICY_EXPECTED_VERSION_PREFIX=v2.35. \

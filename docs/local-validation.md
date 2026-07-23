@@ -46,7 +46,7 @@ The `bootstrap` service must finish with `Exited (0)`. It:
 
 ## Access
 
-- Coder: [http://coder.localhost:7080](http://coder.localhost:7080)
+- Coder: [http://coder.localtest.me:7080](http://coder.localtest.me:7080)
 - Prometheus: [http://127.0.0.1:7090/metrics](http://127.0.0.1:7090/metrics)
 - Administrator email: `admin@example.com`
 - Administrator password: `CoderPolicy123!`
@@ -64,7 +64,7 @@ subsequent authenticated request through the proxy is denied.
 The template normally exposes its wildcard application at:
 
 ```text
-http://wildcard--demo--admin.apps.localhost:7080
+http://wildcard--demo--admin.apps.localtest.me:7080
 ```
 
 ## Automated validation
@@ -86,7 +86,8 @@ The script checks:
 - the deprecated creation route remains unblocked;
 - the workspace is absent from the control network;
 - the workspace cannot resolve `coder` directly;
-- the workspace has `CODER_URL=http://coder-policy:8080`;
+- the workspace has `CODER_URL=http://coder.localtest.me:7080`;
+- the former internal Service host returns `421`;
 - `coder list` works from inside the workspace;
 - the CLI identity is resolved as `user` and its password/profile API requests
   are rejected from inside the workspace;
@@ -101,7 +102,7 @@ Optional script variables are:
 
 | Variable | Default |
 | --- | --- |
-| `CODER_POLICY_LOCAL_URL` | `http://coder.localhost:7080` |
+| `CODER_POLICY_LOCAL_URL` | `http://coder.localtest.me:7080` |
 | `CODER_POLICY_LOCAL_METRICS_URL` | `http://127.0.0.1:7090/metrics` |
 | `CODER_POLICY_LOCAL_WILDCARD_URL` | Calculated from the Coder application |
 | `CODER_POLICY_ADMIN_USERNAMES` | Value of `CODER_BOOTSTRAP_USERNAME`, normally `admin` |

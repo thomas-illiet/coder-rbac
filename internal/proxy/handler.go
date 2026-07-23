@@ -62,7 +62,7 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, request *http.Request)
 			return
 		}
 	}
-	if (kind == HostMain || kind == HostInternal) && admissionExemptPath(request.Method, normalizedPath) {
+	if kind == HostMain && admissionExemptPath(request.Method, normalizedPath) {
 		outcome = "forwarded"
 		h.upstream.ServeHTTP(response, request)
 		return
@@ -73,7 +73,7 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, request *http.Request)
 		h.reject(response, decision)
 		return
 	}
-	if kind == HostMain || kind == HostInternal {
+	if kind == HostMain {
 		decision = h.policy.Evaluate(request.Context(), request, normalizedPath, access)
 		if decision.Blocked() {
 			h.reject(response, decision)

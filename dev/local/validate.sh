@@ -6,7 +6,7 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 1
 fi
 
-base_url=${CODER_POLICY_LOCAL_URL:-http://coder.localhost:7080}
+base_url=${CODER_POLICY_LOCAL_URL:-http://coder.localtest.me:7080}
 metrics_url=${CODER_POLICY_LOCAL_METRICS_URL:-http://127.0.0.1:7090/metrics}
 admin_email=${CODER_BOOTSTRAP_EMAIL:-admin@example.com}
 admin_username=${CODER_BOOTSTRAP_USERNAME:-admin}
@@ -70,17 +70,6 @@ if [ -z "$(printf '%s' "$switch_login_response" | jq -r '.session_token // empty
   exit 1
 fi
 echo "PASS: blocked browser session can submit a new native login"
-
-for local_alias in http://localhost:7080 http://127.0.0.1:7080; do
-  status=$(curl --silent --output /tmp/coder-policy-local-response.json --write-out '%{http_code}' \
-    "$local_alias/api/v2/buildinfo")
-  if [ "$status" != "200" ]; then
-    echo "$local_alias is not accepted by the local proxy (HTTP $status)" >&2
-    cat /tmp/coder-policy-local-response.json >&2
-    exit 1
-  fi
-done
-echo "PASS: localhost and 127.0.0.1 aliases are accepted"
 
 admin_create_status=$(curl --silent --output /tmp/coder-policy-local-response.json --write-out '%{http_code}' \
   --request POST \
@@ -218,8 +207,17 @@ echo "PASS: direct coderd resolution fails from the workspace"
 
 # The command must expand CODER_URL inside the workspace container.
 # shellcheck disable=SC2016
-docker exec "$workspace_container" sh -lc 'test "$CODER_URL" = "http://coder-policy:8080"'
-echo "PASS: workspace CODER_URL targets the internal proxy"
+docker exec "$workspace_container" sh -lc 'test "$CODER_URL" = "http://coder.localtest.me:7080"'
+echo "PASS: workspace CODER_URL targets the public proxy URL"
+
+internal_status=$(docker exec "$workspace_container" sh -lc \
+  'curl --silent --output /tmp/coder-policy-internal-host.json --write-out "%{http_code}" http://coder-policy:7080/api/v2/buildinfo')
+if [ "$internal_status" != "421" ]; then
+  echo "the internal Service host was not rejected (HTTP $internal_status)" >&2
+  docker exec "$workspace_container" cat /tmp/coder-policy-internal-host.json >&2
+  exit 1
+fi
+echo "PASS: internal Service host is rejected (HTTP 421)"
 
 # The command discovers and expands coder_bin inside the workspace container.
 # shellcheck disable=SC2016
@@ -227,9 +225,9 @@ coder_command='coder_bin=$(command -v coder || find /tmp -type f -name coder -pe
 
 docker exec \
   --env "CODER_SESSION_TOKEN=$session_token" \
-  --env 'CODER_URL=http://coder-policy:8080' \
+  --env 'CODER_URL=http://coder.localtest.me:7080' \
   "$workspace_container" sh -lc "$coder_command; \"\$coder_bin\" list >/dev/null"
-echo "PASS: the Coder CLI works through the internal proxy"
+echo "PASS: the Coder CLI works through the public proxy URL"
 
 # Coder 2.35.2 has no self-service CLI commands for these mutations. The test
 # authenticates with the CLI, then exercises the exact API routes from the same
@@ -237,7 +235,7 @@ echo "PASS: the Coder CLI works through the internal proxy"
 # shellcheck disable=SC2016
 docker exec \
   --env "CODER_SESSION_TOKEN=$session_token" \
-  --env 'CODER_URL=http://coder-policy:8080' \
+  --env 'CODER_URL=http://coder.localtest.me:7080' \
   --env "EXPECTED_CODER_USERNAME=${CODER_RESTRICTED_USERNAME:-user}" \
   "$workspace_container" sh -lc '
     set -eu
@@ -260,11 +258,11 @@ docker exec \
       grep -q "\"code\":\"$expected_code\"" "/tmp/coder-policy-cli-$route.json"
     done
   '
-echo "PASS: CLI identity cannot update its password or profile through the internal proxy"
+echo "PASS: CLI identity cannot update its password or profile through the public proxy URL"
 
 if docker exec \
   --env "CODER_SESSION_TOKEN=$session_token" \
-  --env 'CODER_URL=http://coder-policy:8080' \
+  --env 'CODER_URL=http://coder.localtest.me:7080' \
   "$workspace_container" sh -lc "$coder_command; printf '%s\\n' \"\$1\" | \"\$coder_bin\" rename \"\$2/\$1\" renamed" validation "$workspace" "$admin_username" >/tmp/coder-policy-cli-rename.log 2>&1; then
   echo "workspace rename unexpectedly succeeded through the container CLI" >&2
   exit 1
@@ -276,7 +274,7 @@ if ! grep -q 'Workspace renaming is not allowed' /tmp/coder-policy-cli-rename.lo
 fi
 echo "PASS: container Coder CLI rename is blocked by coder-policy"
 
-wildcard_url=${CODER_POLICY_LOCAL_WILDCARD_URL:-http://$app_subdomain.apps.localhost:7080}
+wildcard_url=${CODER_POLICY_LOCAL_WILDCARD_URL:-http://$app_subdomain.apps.localtest.me:7080}
 wildcard_body=$(curl --fail --silent --location \
   --header "Coder-Session-Token: $admin_session_token" \
   "$wildcard_url/")
@@ -297,7 +295,7 @@ status=$(curl --silent --output /tmp/coder-policy-local-response.json --write-ou
 assert_status 404 "$status" "API paths are hidden on wildcard hosts"
 
 status=$(curl --silent --output /tmp/coder-policy-local-response.json --write-out '%{http_code}' \
-  --header 'Host: undeclared.localhost:7080' \
+  --header 'Host: undeclared.localtest.me:7080' \
   http://127.0.0.1:7080/)
 assert_status 421 "$status" "undeclared hosts are rejected"
 

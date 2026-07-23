@@ -38,7 +38,6 @@ go run ./cmd/coder-policy serve \
   --upstream-url=http://127.0.0.1:3000 \
   --public-url=https://coder.example.com \
   --wildcard-access-host='*.apps.example.com' \
-  --internal-hosts=coder-policy,coder-policy.coder.svc.cluster.local \
   --admin-usernames=platform-admin \
   --allowed-usernames=developer \
   --expected-version-prefix=v2.35.
@@ -63,9 +62,9 @@ The process exposes three independent listeners by default:
 - [Kubernetes deployment](docs/kubernetes-deployment.md)
 - [Security model and hardening](docs/security.md)
 
-Every workspace must use the internal proxy URL for `CODER_URL`, and network
-controls must prevent direct access to `coderd`. An alternate Ingress, Service,
-LoadBalancer, port-forward, or permissive NetworkPolicy can bypass the policy.
+Every workspace must use `CODER_POLICY_PUBLIC_URL` for `CODER_URL`, and
+platform-level network controls must prevent direct access to `coderd`. An
+alternate Ingress, Service, LoadBalancer, or port-forward can bypass the policy.
 
 ## Local validation
 

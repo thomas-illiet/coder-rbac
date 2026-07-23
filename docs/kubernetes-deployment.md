@@ -8,10 +8,10 @@ boundary around Coder.
 - DNS for the main Coder hostname and application wildcard;
 - TLS certificates covering both hostnames;
 - a published `coder-policy` image accessible to the cluster;
-- a CNI that enforces Kubernetes NetworkPolicies;
-- verified labels for Coder and workspace pods;
-- an inventory of provisioners, operators, monitoring, registries, Git servers,
-  package mirrors, and other required network peers.
+- platform networking that makes the public Coder URL reachable from workspaces
+  while blocking direct access to `coderd`;
+- an inventory of provisioners, operators, monitoring, and other components
+  that require direct Coder access.
 
 ## Install with Helm
 
@@ -54,19 +54,6 @@ ingress:
     tls:
       enabled: true
       secretName: coder-wildcard-tls
-
-networkPolicy:
-  workspaceEgress:
-    enabled: true
-    podSelector:
-      matchExpressions:
-        - key: coder.com/workspace_id
-          operator: Exists
-  coderIngress:
-    enabled: true
-    podSelector:
-      matchLabels:
-        app.kubernetes.io/name: coder
 ```
 
 Review all defaults and descriptions in
@@ -132,13 +119,13 @@ long-lived HTTP connections.
 
 ## Configure workspaces
 
-Every workspace container must use the internal proxy Service:
+Every workspace container must use the public proxy URL:
 
 ```hcl
 resource "coder_agent" "main" {
   # Other agent settings are omitted.
   env = {
-    CODER_URL = "http://coder-policy.coder.svc.cluster.local:8080"
+    CODER_URL = "https://coder.example.com"
   }
 }
 ```
@@ -149,58 +136,35 @@ When a template defines container variables directly:
 resource "docker_container" "workspace" {
   # Other container settings are omitted.
   env = [
-    "CODER_URL=http://coder-policy.coder.svc.cluster.local:8080",
+    "CODER_URL=https://coder.example.com",
   ]
 }
 ```
 
-Agent initialization must also reach Coder through the public or internal proxy
-URL, never through the direct `coderd` Service.
+Agent initialization must also reach Coder through the public proxy URL, never
+through the direct `coderd` Service. Confirm that workspace DNS, routing, and
+TLS trust make `CODER_POLICY_PUBLIC_URL` reachable before migrating existing
+templates.
 
-## NetworkPolicies
+## External network isolation
 
-### Workspace egress
+The chart intentionally creates no cluster network-isolation resources.
+Operators must enforce the required boundary through their platform:
 
-By default, the chart selects pods with the `coder.com/workspace_id` label and
-allows:
+- workspaces can resolve and reach `CODER_POLICY_PUBLIC_URL`;
+- untrusted clients and workspaces cannot reach the direct `coderd` Service;
+- `coderd` has no alternate public Ingress, LoadBalancer, or port-forward;
+- provisioners, operators, and monitoring receive only the direct access they
+  require.
 
-- TCP traffic to the `coder-policy` proxy port;
-- UDP and TCP port 53 to the selected cluster DNS pods;
-- entries configured in `additionalEgress`.
-
-Add registries, Git servers, package mirrors, Internet proxies, and every other
-required destination explicitly. A correctly selected workspace is otherwise
-intentionally restricted.
-
-### Coder ingress
-
-By default, the chart selects `app.kubernetes.io/name=coder` and permits
-`coder-policy`. Add external provisioners, operators, and other trusted Coder
-components through `additionalIngress`.
-
-### Multiple namespaces
-
-The chart creates a workspace policy in one namespace per release. If
-workspaces run in multiple namespaces, install an equivalent egress policy in
-each namespace.
-
-### Additive policy behavior
-
-List every policy that selects Coder or workspace pods:
-
-```shell
-kubectl get networkpolicy -A
-kubectl describe networkpolicy -n coder
-```
-
-NetworkPolicies are additive. An existing allow-all policy can make the chart's
-policy insufficient. Verify enforcement from a real selected workspace pod.
+Verify the result from a real workspace rather than relying only on rendered
+manifests.
 
 ## Post-deployment checks
 
 ```shell
 kubectl rollout status deployment/coder-policy -n coder
-kubectl get pods,svc,ingress,networkpolicy -n coder
+kubectl get pods,svc,ingress -n coder
 kubectl port-forward -n coder svc/coder-policy 18081:8081 19090:9090
 curl -fsS http://127.0.0.1:18081/readyz
 curl -fsS http://127.0.0.1:19090/metrics \
@@ -210,9 +174,10 @@ curl -fsS http://127.0.0.1:19090/metrics \
 From a real workspace:
 
 ```shell
-test "$CODER_URL" = "http://coder-policy.coder.svc.cluster.local:8080"
+test "$CODER_URL" = "https://coder.example.com"
 coder list
 coder rename <workspace> <new-name>  # Must fail.
+curl -fsS https://coder.example.com/api/v2/buildinfo
 curl --connect-timeout 3 http://coder.coder.svc.cluster.local  # Must fail at the network layer.
 ```
 
@@ -228,5 +193,5 @@ helm rollback coder-policy <revision> -n coder --wait
 ```
 
 A rolled-back proxy whose policy is incompatible with the active Coder version
-intentionally remains unready. Repeat the post-deployment and workspace network
-checks after rollback.
+intentionally remains unready. Repeat the post-deployment and workspace
+connectivity checks after rollback.

@@ -5,9 +5,9 @@ This document is the canonical reference for the policy enforced by
 
 ## Scope
 
-The workspace policy applies to requests received on the configured public host
-or a declared internal host. Application wildcard hosts use a separate policy
-that hides control-plane paths.
+The workspace policy applies to requests received on the configured public
+host. Application wildcard hosts use a separate policy that hides control-plane
+paths. Any other host receives `421 unknown_host`.
 
 `CODER_POLICY_ADMIN_USERNAMES` contains administrators who are admitted and bypass
 every workspace restriction below. `CODER_POLICY_ALLOWED_USERNAMES` contains
@@ -30,8 +30,8 @@ canonical user through `/api/v2/users/me` before forwarding:
 Native password or SSO authentication can therefore complete before the next
 authenticated request is denied. The proxy does not issue or revoke Coder
 sessions. Wildcard control-plane paths remain hidden with `404` before admission
-is evaluated. Main and internal hosts keep the native login, logout, password
-reset, OAuth/OIDC, OTP, authentication-method, and public `/assets` routes
+is evaluated. The main host keeps the native login, logout, password reset,
+OAuth/OIDC, OTP, authentication-method, and public `/assets` routes
 reachable so a denied browser session can switch accounts.
 
 ## Operation matrix

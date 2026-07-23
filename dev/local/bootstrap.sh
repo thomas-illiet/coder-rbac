@@ -71,7 +71,7 @@ fi
 /opt/coder sharing add "$username/$workspace" --user "$restricted_username:use"
 
 echo "local Coder environment is ready"
-echo "URL: http://coder.localhost:7080"
+echo "URL: http://coder.localtest.me:7080"
 echo "Login: $email"
 echo "Password: $password"
 echo "Administrator username for CODER_POLICY_ADMIN_USERNAMES: $username"

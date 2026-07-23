@@ -48,9 +48,6 @@ config:
   publicURL: ""
   # Application wildcard hostname in *.example.com form, without a scheme or port.
   wildcardAccessHost: ""
-  # Additional internal hostnames accepted by the proxy. The chart automatically
-  # includes the generated Service short name and cluster-local DNS name.
-  internalHosts: []
   # Canonical Coder usernames that may access Coder and bypass all workspace
   # restrictions. Administrators are implicitly admitted without duplication.
   adminUsernames: []
@@ -94,40 +91,6 @@ ingress:
     tls:
       enabled: true
       secretName: ""
-
-# Fail-closed network boundaries. Kubernetes NetworkPolicies are additive; audit
-# other policies that select the same pods before relying on these defaults.
-networkPolicy:
-  # Restrict selected workspace pods to DNS, coder-policy, and explicitly added
-  # destinations. Set namespace when workspaces run outside the release namespace.
-  workspaceEgress:
-    enabled: true
-    namespace: ""
-    podSelector:
-      matchExpressions:
-        - key: coder.com/workspace_id
-          operator: Exists
-    # Select the cluster DNS pods allowed on UDP and TCP port 53.
-    dns:
-      namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: kube-system
-      podSelector:
-        matchLabels:
-          k8s-app: kube-dns
-    # Raw NetworkPolicy egress entries for Git, registries, package mirrors, and
-    # any other destinations required by workspaces.
-    additionalEgress: []
-  # Restrict selected coderd pods to coder-policy and explicitly added sources.
-  coderIngress:
-    enabled: true
-    namespace: ""
-    podSelector:
-      matchLabels:
-        app.kubernetes.io/name: coder
-    # Raw NetworkPolicy ingress entries for external provisioners, operators, or
-    # other trusted Coder components.
-    additionalIngress: []
 
 # Resource defaults for each proxy pod.
 resources:

@@ -35,7 +35,13 @@ docs-check: node_modules/.package-lock.json
 
 helm-check:
 	helm lint charts/coder-policy -f charts/coder-policy/ci/values.yaml
-	helm template coder-policy charts/coder-policy -f charts/coder-policy/ci/values.yaml >/dev/null
+	@rendered="$$(mktemp)"; \
+	trap 'rm -f "$$rendered"' EXIT; \
+	helm template coder-policy charts/coder-policy -f charts/coder-policy/ci/values.yaml >"$$rendered"; \
+	if grep -Eq 'CODER_POLICY_INTERNAL_HOSTS|kind: NetworkPolicy' "$$rendered"; then \
+		echo "removed internal-host or NetworkPolicy configuration was rendered" >&2; \
+		exit 1; \
+	fi
 	@if helm template coder-policy charts/coder-policy -f charts/coder-policy/ci/values.yaml \
 		--set-string 'config.allowedUserIDs[0]=legacy' >/dev/null 2>&1; then \
 		echo "legacy config.allowedUserIDs was unexpectedly accepted" >&2; \

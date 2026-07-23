@@ -114,18 +114,16 @@ Check:
 - DNS and connectivity to the upstream;
 - Coder `/api/v2/buildinfo`;
 - `CODER_POLICY_EXPECTED_VERSION_PREFIX`;
-- the Coder ingress NetworkPolicy.
+- platform routing and access controls around Coder.
 
 ### The proxy returns `421`
 
-The `Host` is not the public URL, a declared internal host, or a wildcard
-subdomain. Check:
+The `Host` is not the public URL or a wildcard subdomain. Check:
 
 - `CODER_POLICY_PUBLIC_URL`;
-- `CODER_POLICY_INTERNAL_HOSTS`;
 - `Host` preservation by the Ingress;
 - DNS and the port present in the request;
-- the URL used by the CLI.
+- that the CLI and workspace `CODER_URL` use the public URL.
 
 ### A wildcard application returns `404`
 
@@ -156,7 +154,7 @@ to restore access.
 ### The proxy returns `502 upstream_unavailable`
 
 The reverse proxy could not contact Coder or lost the connection. Check the
-Service, endpoints, NetworkPolicy, DNS, internal TLS, and `coderd` logs.
+Service, endpoints, platform routing, DNS, internal TLS, and `coderd` logs.
 
 ### The CLI works but a forbidden action succeeds
 
@@ -165,7 +163,7 @@ Treat this as a potential security incident:
 1. inspect `CODER_URL` inside the workspace;
 2. inspect reachable networks and DNS;
 3. find any direct Coder Ingress or Service;
-4. inspect every additive NetworkPolicy;
+4. inspect platform firewall and routing controls;
 5. check whether the canonical username is configured as an administrator;
 6. identify the actual API route used;
 7. determine whether it is the intentionally allowed deprecated creation route.
@@ -194,7 +192,7 @@ long-lived connections separately.
 
 - Helm values and configuration manifests;
 - administrator and allowed-username history and username-to-user-ID mappings;
-- Ingress and NetworkPolicy rules;
+- Ingress, Service, firewall, and routing rules;
 - dashboards and alerts;
 - the Coder database and configuration according to Coder procedures.
 

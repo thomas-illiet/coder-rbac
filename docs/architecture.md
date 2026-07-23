@@ -23,11 +23,10 @@ All three listeners must use different ports.
 flowchart LR
     Browser["Browser and external CLI"] --> MainIngress["Main Ingress"]
     AppClient["Workspace application client"] --> WildcardIngress["Wildcard Ingress"]
-    Workspace["Workspace, agent, and internal CLI"] --> InternalService["Internal coder-policy Service"]
+    Workspace["Workspace, agent, and workspace CLI"] --> MainIngress
 
     MainIngress --> Proxy["coder-policy :8080"]
     WildcardIngress --> Proxy
-    InternalService --> Proxy
 
     Proxy --> Gate["Coder 2.35.x version gate"]
     Gate --> Host["Host classification"]
@@ -66,17 +65,18 @@ The following paths are hidden on wildcard hosts before they reach Coder:
 They receive `404 Not Found`. Other paths use the same admission check before
 they are forwarded to Coder.
 
-### Workspaces and internal CLI traffic
+### Workspaces, agents, and CLI traffic
 
-Every workspace must receive:
+Every workspace must use the same public URL as browsers:
 
 ```text
-CODER_URL=http://coder-policy.<namespace>.svc.cluster.local:8080
+CODER_URL=https://coder.example.com
 ```
 
-Workspace pods must not be able to reach the `coderd` Service directly. The
-Helm chart provides baseline NetworkPolicies, but their selectors must match the
-labels used by the actual Coder deployment and workspace templates.
+Workspace DNS, routing, and TLS must make that public URL reachable. Direct
+Service names for `coder-policy` are intentionally rejected with
+`421 unknown_host`. Platform-level controls outside this chart must prevent
+workspaces from reaching the `coderd` Service directly.
 
 ## Request processing
 
@@ -98,7 +98,7 @@ sequenceDiagram
             Proxy-->>Client: 421 unknown_host
         else Wildcard control path
             Proxy-->>Client: 404
-        else Main, internal, or application request
+        else Main or application request
             Proxy->>API: GET /api/v2/users/me
             alt Request is anonymous or a non-user service flow
                 API-->>Proxy: 401 or 403
@@ -128,9 +128,9 @@ The processing order is:
 
 1. check version-gate readiness;
 2. repeatedly decode and normalize the path;
-3. classify `Host` as `main`, `internal`, `wildcard`, or `unknown`;
+3. classify `Host` as `main`, `wildcard`, or `unknown`;
 4. hide control-plane paths on wildcard hosts;
-5. forward native authentication and public asset routes on main and internal hosts;
+5. forward native authentication and public asset routes on the main host;
 6. resolve every other request identity through `/api/v2/users/me`;
 7. forward anonymous or non-user service traffic for native Coder handling;
 8. reject authenticated usernames absent from both access lists;
@@ -197,20 +197,17 @@ flowchart TB
     end
     subgraph WorkspaceNet["coder-policy-workspace"]
         WorkspaceDemo["demo workspace"]
-        ProxyWorkspace["coder-policy"]
+        ProxyPublic["coder.localtest.me"]
     end
-    ProxyControl --- ProxyWorkspace
+    ProxyControl --- ProxyPublic
 ```
 
-The workspace cannot resolve the `coder` service. Only `coder-policy` is attached
-to both networks.
+The workspace cannot resolve the `coder` service. The public
+`coder.localtest.me:7080` name resolves to the proxy on the workspace network.
 
 ### Kubernetes
 
-Kubernetes isolation requires two complementary directions:
-
-- workspace egress permits cluster DNS and the `coder-policy` proxy port;
-- `coderd` ingress permits `coder-policy` and explicitly required components.
-
-NetworkPolicies are additive. Another permissive policy can invalidate the
-intended boundary.
+The Helm chart does not manage cluster network isolation. Operators must make
+the public URL reachable from workspaces while preventing any direct workspace
+or untrusted-client route to `coderd`. This boundary must be enforced and tested
+with the platform's networking controls.
