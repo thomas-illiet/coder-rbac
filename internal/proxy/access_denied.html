@@ -34,7 +34,9 @@
 						</div>
 
 						<div class="actions">
-							<a class="button primary" href="{{.LoginURL}}">Change account</a>
+							<form action="{{.LogoutURL}}" method="post">
+								<button class="button primary" type="submit">Change account</button>
+							</form>
 							<a class="button" href="{{.RetryURL}}">Try again</a>
 						</div>
 					</div>

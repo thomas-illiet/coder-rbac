@@ -50,6 +50,11 @@ checked for a Coder user identity. Anonymous requests are forwarded so Coder
 can serve its login flow. Verified users must be in the administrator or
 allowed list before forwarding.
 
+The themed denial page submits **Change account** to the main-host-only
+`POST /_coder-policy/logout` route. The proxy rewrites it to Coder's native
+logout endpoint, preserves cookie deletion, and redirects to `/login` after
+successful server-side revocation.
+
 ### Application wildcard
 
 The wildcard Ingress targets the same Service. The proxy preserves the original

@@ -150,7 +150,7 @@ func TestHandlerEnforcesUserAdmissionAcrossHosts(t *testing.T) {
 		{name: "internal service rejected", host: "coder-policy:8080", method: http.MethodGet, path: "/api/v2/workspaces", token: "blocked-token", status: http.StatusMisdirectedRequest, code: "unknown_host"},
 		{name: "allowed wildcard", host: "code--dev--alice.apps.example.com", method: http.MethodGet, path: "/", token: "allowed-token", status: http.StatusOK},
 		{name: "blocked wildcard", host: "code--dev--alice.apps.example.com", method: http.MethodGet, path: "/", token: "blocked-token", status: http.StatusForbidden, code: "user_access_forbidden"},
-		{name: "blocked wildcard browser uses main login", host: "code--dev--alice.apps.example.com", method: http.MethodGet, path: "/", token: "blocked-token", accept: "text/html", status: http.StatusForbidden, contentType: "text/html; charset=utf-8", body: `href="https://coder.example.com/login"`},
+		{name: "blocked wildcard browser uses main logout", host: "code--dev--alice.apps.example.com", method: http.MethodGet, path: "/", token: "blocked-token", accept: "text/html", status: http.StatusForbidden, contentType: "text/html; charset=utf-8", body: `action="https://coder.example.com/_coder-policy/logout"`},
 		{name: "wildcard control path stays hidden", host: "code--dev--alice.apps.example.com", method: http.MethodGet, path: "/api/v2/users/me", token: "blocked-token", status: http.StatusNotFound},
 		{name: "identity failure", host: "coder.example.com", method: http.MethodGet, path: "/dashboard", token: "failure-token", status: http.StatusServiceUnavailable, code: "identity_unavailable"},
 	}
@@ -195,7 +195,7 @@ func TestAccessDeniedPageEscapesRequestData(t *testing.T) {
 	request.Host = `coder.example.com"><script>alert(1)</script>`
 	response := httptest.NewRecorder()
 
-	if err := writeAccessDenied(response, request, "https://coder.example.com/login"); err != nil {
+	if err := writeAccessDenied(response, request, "https://coder.example.com"); err != nil {
 		t.Fatal(err)
 	}
 	body := response.Body.String()
@@ -223,8 +223,102 @@ func TestAccessDeniedPageEscapesRequestData(t *testing.T) {
 	if !strings.Contains(body, `href="/dashboard?tab=workspaces"`) {
 		t.Fatalf("retry URL is missing: %q", body)
 	}
-	if !strings.Contains(body, `href="https://coder.example.com/login"`) {
-		t.Fatalf("login URL is missing: %q", body)
+	if !strings.Contains(body, `action="https://coder.example.com/_coder-policy/logout" method="post"`) {
+		t.Fatalf("logout form is missing: %q", body)
+	}
+	if !strings.Contains(response.Header().Get("Content-Security-Policy"), "form-action 'self' https://coder.example.com") {
+		t.Fatalf("logout form origin is missing from CSP: %q", response.Header().Get("Content-Security-Policy"))
+	}
+}
+
+// TestBrowserLogoutPathRequiresExactPost prevents logout through safe or similar-looking routes.
+func TestBrowserLogoutPathRequiresExactPost(t *testing.T) {
+	tests := []struct {
+		method string
+		path   string
+		want   bool
+	}{
+		{method: http.MethodPost, path: "/_coder-policy/logout", want: true},
+		{method: http.MethodGet, path: "/_coder-policy/logout", want: false},
+		{method: http.MethodHead, path: "/_coder-policy/logout", want: false},
+		{method: http.MethodPost, path: "/_coder-policy/logout/extra", want: false},
+		{method: http.MethodPost, path: "/api/v2/users/logout", want: false},
+	}
+	for _, test := range tests {
+		if got := browserLogoutPath(test.method, test.path); got != test.want {
+			t.Errorf("browserLogoutPath(%q, %q) = %t, want %t", test.method, test.path, got, test.want)
+		}
+	}
+}
+
+// TestHandlerLogsOutBrowserBeforeRedirect verifies Coder owns session invalidation.
+func TestHandlerLogsOutBrowserBeforeRedirect(t *testing.T) {
+	tests := []struct {
+		name           string
+		upstreamStatus int
+		wantStatus     int
+		wantLocation   string
+		wantBody       string
+	}{
+		{name: "success", upstreamStatus: http.StatusOK, wantStatus: http.StatusSeeOther, wantLocation: "https://coder.example.com/login"},
+		{name: "failure", upstreamStatus: http.StatusInternalServerError, wantStatus: http.StatusInternalServerError, wantBody: `{"message":"logout failed"}`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			logoutCalled := false
+			upstream := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				response.Header().Set("Content-Type", "application/json")
+				switch request.URL.Path {
+				case "/api/v2/buildinfo":
+					_, _ = response.Write([]byte(`{"version":"v2.35.2"}`))
+				case "/api/v2/users/logout":
+					logoutCalled = true
+					if request.Method != http.MethodPost {
+						t.Errorf("logout method = %s, want POST", request.Method)
+					}
+					if request.URL.RawQuery != "" {
+						t.Errorf("logout query = %q, want empty", request.URL.RawQuery)
+					}
+					if request.Header.Get("Coder-Session-Token") != "blocked-token" {
+						t.Errorf("logout token = %q", request.Header.Get("Coder-Session-Token"))
+					}
+					response.Header().Add("Set-Cookie", "coder_session_token=; Path=/; Max-Age=0; HttpOnly")
+					response.WriteHeader(test.upstreamStatus)
+					if test.upstreamStatus >= http.StatusBadRequest {
+						_, _ = response.Write([]byte(`{"message":"logout failed"}`))
+					} else {
+						_, _ = response.Write([]byte(`{"message":"Logged out!"}`))
+					}
+				default:
+					http.NotFound(response, request)
+				}
+			}))
+			defer upstream.Close()
+
+			handler := newReadyTestHandler(t, upstream)
+			request := httptest.NewRequest(http.MethodPost, "https://coder.example.com/_coder-policy/logout?next=https://attacker.example", nil)
+			request.Host = "coder.example.com"
+			request.Header.Set("Coder-Session-Token", "blocked-token")
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if !logoutCalled {
+				t.Fatal("native Coder logout was not called")
+			}
+			if response.Code != test.wantStatus {
+				t.Fatalf("status = %d, want %d; body=%s", response.Code, test.wantStatus, response.Body.String())
+			}
+			if response.Header().Get("Location") != test.wantLocation {
+				t.Fatalf("Location = %q, want %q", response.Header().Get("Location"), test.wantLocation)
+			}
+			if !strings.Contains(response.Header().Get("Set-Cookie"), "coder_session_token=;") {
+				t.Fatalf("Set-Cookie = %q", response.Header().Get("Set-Cookie"))
+			}
+			if response.Body.String() != test.wantBody {
+				t.Fatalf("body = %q, want %q", response.Body.String(), test.wantBody)
+			}
+		})
 	}
 }
 

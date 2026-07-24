@@ -63,7 +63,9 @@ blocked_browser_status=$(curl --silent --output /tmp/coder-policy-local-access-d
   --header 'Accept: text/html' \
   --header "Coder-Session-Token: $blocked_session_token" \
   "$base_url/")
-if [ "$blocked_browser_status" != "403" ] || ! grep -Fq 'data-error-page="403"' /tmp/coder-policy-local-access-denied.html; then
+if [ "$blocked_browser_status" != "403" ] ||
+  ! grep -Fq 'data-error-page="403"' /tmp/coder-policy-local-access-denied.html ||
+  ! grep -Fq "action=\"$base_url/_coder-policy/logout\" method=\"post\"" /tmp/coder-policy-local-access-denied.html; then
   echo "blocked browser request did not receive the themed access-denied page (HTTP $blocked_browser_status)" >&2
   cat /tmp/coder-policy-local-access-denied.html >&2
   exit 1

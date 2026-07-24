@@ -62,6 +62,11 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, request *http.Request)
 			return
 		}
 	}
+	if kind == HostMain && browserLogoutPath(request.Method, normalizedPath) {
+		outcome = "forwarded"
+		h.logoutAndRedirect(response, request)
+		return
+	}
 	if kind == HostMain && admissionExemptPath(request.Method, normalizedPath) {
 		outcome = "forwarded"
 		h.upstream.ServeHTTP(response, request)
@@ -88,7 +93,7 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, request *http.Request)
 func (h *Handler) reject(response http.ResponseWriter, request *http.Request, decision Decision) {
 	h.metrics.observeRejection(decision.Code)
 	if decision.Code == "user_access_forbidden" && acceptsHTML(request) {
-		if err := writeAccessDenied(response, request, h.classifier.publicURL+"/login"); err == nil {
+		if err := writeAccessDenied(response, request, h.classifier.publicURL); err == nil {
 			return
 		} else {
 			h.logger.Error("render access denied page", "error", err)

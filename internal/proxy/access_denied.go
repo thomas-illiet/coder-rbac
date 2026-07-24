@@ -3,6 +3,7 @@ package proxy
 import (
 	"bytes"
 	_ "embed"
+	"fmt"
 	"html/template"
 	"net/http"
 	"strings"
@@ -35,25 +36,25 @@ func acceptsHTML(request *http.Request) bool {
 }
 
 // writeAccessDenied renders the themed browser response without external assets.
-func writeAccessDenied(response http.ResponseWriter, request *http.Request, loginURL string) error {
+func writeAccessDenied(response http.ResponseWriter, request *http.Request, publicURL string) error {
 	var body bytes.Buffer
 	err := accessDeniedTemplate.Execute(&body, struct {
-		Host     string
-		LoginURL string
-		RetryURL string
-		Style    template.CSS
+		Host      string
+		LogoutURL string
+		RetryURL  string
+		Style     template.CSS
 	}{
-		Host:     request.Host,
-		LoginURL: loginURL,
-		RetryURL: request.URL.RequestURI(),
-		Style:    template.CSS(accessDeniedStyle),
+		Host:      request.Host,
+		LogoutURL: publicURL + browserLogoutRoute,
+		RetryURL:  request.URL.RequestURI(),
+		Style:     template.CSS(accessDeniedStyle),
 	})
 	if err != nil {
 		return err
 	}
 
 	response.Header().Set("Cache-Control", "no-store")
-	response.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+	response.Header().Set("Content-Security-Policy", fmt.Sprintf("default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self' %s; frame-ancestors 'none'", publicURL))
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.Header().Set("X-Content-Type-Options", "nosniff")
 	response.WriteHeader(http.StatusForbidden)

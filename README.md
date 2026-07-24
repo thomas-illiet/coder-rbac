@@ -19,7 +19,8 @@ deletion, renaming, lifecycle settings, dormancy, provisioner state overrides,
 and parameter changes. Any other authenticated username receives
 `403 user_access_forbidden`. Browser navigations receive a themed access-denied
 page consistent with the Code Studio gateway, while API and CLI requests retain
-the stable JSON response.
+the stable JSON response. Its **Change account** action revokes the native Coder
+session and application tokens before redirecting to the login page.
 
 The complete and normative behavior, including response codes and parameter
 rules, is documented in [Authorization policy](docs/policy.md).

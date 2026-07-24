@@ -96,6 +96,11 @@ allowed first value of an ephemeral parameter introduced by a target version.
 Coder remains responsible for authentication. Auxiliary API calls copy only
 `Authorization`, `Coder-Session-Token`, and `Cookie`.
 
+The themed denial page does not clear cookies itself. Its **Change account**
+form submits to the main public host, where the proxy invokes Coder's native
+logout endpoint. Coder revokes the session and application tokens and emits the
+cookie deletion; the proxy redirects only after that operation succeeds.
+
 The reverse proxy rebuilds `X-Forwarded-*` headers through Go's
 `ProxyRequest.SetXForwarded`. It preserves the original `Host` for wildcard
 routing. The Ingress must not use attacker-controlled headers to choose a route

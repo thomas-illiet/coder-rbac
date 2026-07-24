@@ -159,6 +159,14 @@ The page is embedded in the proxy binary, uses no external assets, and remains
 non-cacheable. Other policy decisions retain the JSON response even when the
 client accepts HTML.
 
+The page's **Change account** form posts to `/_coder-policy/logout` on the main
+public URL. The proxy relays that request to Coder's native
+`POST /api/v2/users/logout` endpoint, which deletes the server-side session,
+expires its browser cookie, and invalidates application tokens. The proxy
+preserves Coder's `Set-Cookie` headers and redirects to `/login` with `303` only
+after a successful logout. A failed logout response is returned unchanged and
+is never hidden by a login redirect.
+
 | Status | Code | Primary cause |
 | --- | --- | --- |
 | `400` | `invalid_path` | Invalid normalized path |
