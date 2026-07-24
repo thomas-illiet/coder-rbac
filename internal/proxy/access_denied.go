@@ -36,18 +36,20 @@ func acceptsHTML(request *http.Request) bool {
 }
 
 // writeAccessDenied renders the themed browser response without external assets.
-func writeAccessDenied(response http.ResponseWriter, request *http.Request, publicURL string) error {
+func writeAccessDenied(response http.ResponseWriter, request *http.Request, publicURL, logoutCSRFToken string) error {
 	var body bytes.Buffer
 	err := accessDeniedTemplate.Execute(&body, struct {
-		Host      string
-		LogoutURL string
-		RetryURL  string
-		Style     template.CSS
+		Host            string
+		LogoutURL       string
+		LogoutCSRFToken string
+		RetryURL        string
+		Style           template.CSS
 	}{
-		Host:      request.Host,
-		LogoutURL: publicURL + browserLogoutRoute,
-		RetryURL:  request.URL.RequestURI(),
-		Style:     template.CSS(accessDeniedStyle),
+		Host:            request.Host,
+		LogoutURL:       publicURL + browserLogoutRoute,
+		LogoutCSRFToken: logoutCSRFToken,
+		RetryURL:        request.URL.RequestURI(),
+		Style:           template.CSS(accessDeniedStyle),
 	})
 	if err != nil {
 		return err

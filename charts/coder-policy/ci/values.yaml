@@ -6,6 +6,7 @@ config:
     - platform-admin
   allowedUsernames:
     - developer
+  logoutCSRFSecret: 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZab
 ingress:
   main:
     host: coder.example.com

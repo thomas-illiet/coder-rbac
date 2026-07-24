@@ -118,6 +118,7 @@ func TestHandlerEnforcesUserAdmissionAcrossHosts(t *testing.T) {
 		newTestReverseProxy(upstreamURL),
 		logger,
 		NewMetrics(prometheus.NewRegistry()),
+		nil,
 	)
 	server := httptest.NewServer(handler)
 	defer server.Close()
@@ -195,7 +196,7 @@ func TestAccessDeniedPageEscapesRequestData(t *testing.T) {
 	request.Host = `coder.example.com"><script>alert(1)</script>`
 	response := httptest.NewRecorder()
 
-	if err := writeAccessDenied(response, request, "https://coder.example.com"); err != nil {
+	if err := writeAccessDenied(response, request, "https://coder.example.com", "signed-csrf-token"); err != nil {
 		t.Fatal(err)
 	}
 	body := response.Body.String()
@@ -226,6 +227,9 @@ func TestAccessDeniedPageEscapesRequestData(t *testing.T) {
 	if !strings.Contains(body, `action="https://coder.example.com/_coder-policy/logout" method="post"`) {
 		t.Fatalf("logout form is missing: %q", body)
 	}
+	if !strings.Contains(body, `name="csrf_token" type="hidden" value="signed-csrf-token"`) {
+		t.Fatalf("logout CSRF token is missing: %q", body)
+	}
 	if !strings.Contains(response.Header().Get("Content-Security-Policy"), "form-action 'self' https://coder.example.com") {
 		t.Fatalf("logout form origin is missing from CSP: %q", response.Header().Get("Content-Security-Policy"))
 	}
@@ -248,6 +252,34 @@ func TestBrowserLogoutPathRequiresExactPost(t *testing.T) {
 		if got := browserLogoutPath(test.method, test.path); got != test.want {
 			t.Errorf("browserLogoutPath(%q, %q) = %t, want %t", test.method, test.path, got, test.want)
 		}
+	}
+}
+
+// TestLogoutCSRFTokenValidation covers valid, expired, and tampered form tokens.
+func TestLogoutCSRFTokenValidation(t *testing.T) {
+	handler := &Handler{logoutCSRFKey: []byte("shared-test-signing-key")}
+	secondReplica := &Handler{logoutCSRFKey: []byte("shared-test-signing-key")}
+	differentReplica := &Handler{logoutCSRFKey: []byte("different-test-signing-key")}
+	now := time.Unix(1_800_000_000, 0)
+	valid := handler.newLogoutCSRFToken(now)
+	expired := handler.newLogoutCSRFToken(now.Add(-logoutCSRFValidity - logoutCSRFClockSkew - time.Second))
+	parts := strings.Split(valid, ".")
+	tampered := parts[0] + "." + parts[1] + "x." + parts[2]
+
+	if !handler.validLogoutCSRFToken(valid, now) {
+		t.Fatal("fresh token was rejected")
+	}
+	if !secondReplica.validLogoutCSRFToken(valid, now) {
+		t.Fatal("replica sharing the signing key rejected the token")
+	}
+	if differentReplica.validLogoutCSRFToken(valid, now) {
+		t.Fatal("replica with a different signing key accepted the token")
+	}
+	if handler.validLogoutCSRFToken(expired, now) {
+		t.Fatal("expired token was accepted")
+	}
+	if handler.validLogoutCSRFToken(tampered, now) {
+		t.Fatal("tampered token was accepted")
 	}
 }
 
@@ -295,10 +327,16 @@ func TestHandlerLogsOutBrowserBeforeRedirect(t *testing.T) {
 			}))
 			defer upstream.Close()
 
-			handler := newReadyTestHandler(t, upstream)
-			request := httptest.NewRequest(http.MethodPost, "https://coder.example.com/_coder-policy/logout?next=https://attacker.example", nil)
+			handler := newReadyTestHandler(t, upstream).(*Handler)
+			form := url.Values{logoutCSRFField: {handler.newLogoutCSRFToken(time.Now())}}
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"https://coder.example.com/_coder-policy/logout?next=https://attacker.example",
+				strings.NewReader(form.Encode()),
+			)
 			request.Host = "coder.example.com"
-			request.Header.Set("Coder-Session-Token", "blocked-token")
+			request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			request.AddCookie(&http.Cookie{Name: coderSessionCookie, Value: "blocked-token"})
 			response := httptest.NewRecorder()
 
 			handler.ServeHTTP(response, request)
@@ -319,6 +357,43 @@ func TestHandlerLogsOutBrowserBeforeRedirect(t *testing.T) {
 				t.Fatalf("body = %q, want %q", response.Body.String(), test.wantBody)
 			}
 		})
+	}
+}
+
+// TestHandlerRejectsInvalidLogoutCSRF prevents a cross-site form from gaining header authentication.
+func TestHandlerRejectsInvalidLogoutCSRF(t *testing.T) {
+	logoutCalled := false
+	upstream := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		if request.URL.Path == "/api/v2/buildinfo" {
+			_, _ = response.Write([]byte(`{"version":"v2.35.2"}`))
+			return
+		}
+		if request.URL.Path == "/api/v2/users/logout" {
+			logoutCalled = true
+		}
+		http.NotFound(response, request)
+	}))
+	defer upstream.Close()
+
+	handler := newReadyTestHandler(t, upstream)
+	form := url.Values{logoutCSRFField: {"invalid"}}
+	request := httptest.NewRequest(http.MethodPost, "https://coder.example.com/_coder-policy/logout", strings.NewReader(form.Encode()))
+	request.Host = "coder.example.com"
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request.AddCookie(&http.Cookie{Name: coderSessionCookie, Value: "blocked-token"})
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if logoutCalled {
+		t.Fatal("invalid CSRF request reached native Coder logout")
+	}
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403; body=%s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"invalid_logout_csrf"`) {
+		t.Fatalf("body = %q", response.Body.String())
 	}
 }
 
@@ -404,6 +479,7 @@ func TestHandlerFailsClosedWhenVersionGateIsUnready(t *testing.T) {
 		newTestReverseProxy(upstreamURL),
 		logger,
 		NewMetrics(prometheus.NewRegistry()),
+		nil,
 	)
 
 	request := httptest.NewRequest(http.MethodGet, "https://coder.example.com/", nil)
@@ -433,6 +509,7 @@ func newReadyTestHandler(t *testing.T, upstream *httptest.Server) http.Handler {
 		reverseProxy,
 		logger,
 		NewMetrics(prometheus.NewRegistry()),
+		nil,
 	)
 }
 

@@ -35,6 +35,7 @@
 
 						<div class="actions">
 							<form action="{{.LogoutURL}}" method="post">
+								<input name="csrf_token" type="hidden" value="{{.LogoutCSRFToken}}">
 								<button class="button primary" type="submit">Change account</button>
 							</form>
 							<a class="button" href="{{.RetryURL}}">Try again</a>

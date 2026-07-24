@@ -8,6 +8,9 @@ import (
 
 // validate enforces cross-field and security-sensitive configuration constraints.
 func (c Config) validate() error {
+	if c.LogoutCSRFSecret != "" && len(c.LogoutCSRFSecret) < 32 {
+		return fmt.Errorf("logout-csrf-secret must contain at least 32 characters")
+	}
 	if c.ExpectedVersionPrefix == "" {
 		return fmt.Errorf("expected-version-prefix is required")
 	}

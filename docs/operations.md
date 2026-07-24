@@ -183,8 +183,11 @@ Capacity planning should include:
 - inspected body sizes.
 
 The chart defaults to two replicas. Instances are stateless and the proxy does
-not require sticky sessions. Confirm Coder and Ingress requirements for
-long-lived connections separately.
+not require sticky sessions. Helm stores one shared browser-logout CSRF signing
+secret for all replicas and requires `config.logoutCSRFSecret` when more than
+one replica is configured. Direct deployments must set the same
+`CODER_POLICY_LOGOUT_CSRF_SECRET` everywhere. Confirm Coder and Ingress
+requirements for long-lived connections separately.
 
 ## Backup
 

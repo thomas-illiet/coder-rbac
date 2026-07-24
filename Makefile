@@ -41,10 +41,19 @@ helm-check:
 	if grep -Eq 'kind: NetworkPolicy' "$$rendered"; then \
 		echo "removed NetworkPolicy configuration was rendered" >&2; \
 		exit 1; \
+	fi; \
+	if ! grep -Eq 'CODER_POLICY_LOGOUT_CSRF_SECRET: "[[:alnum:]]{64}"' "$$rendered"; then \
+		echo "shared logout CSRF secret was not rendered" >&2; \
+		exit 1; \
 	fi
 	@if helm template coder-policy charts/coder-policy -f charts/coder-policy/ci/values.yaml \
 		--set-string 'config.allowedUserIDs[0]=legacy' >/dev/null 2>&1; then \
 		echo "legacy config.allowedUserIDs was unexpectedly accepted" >&2; \
+		exit 1; \
+	fi
+	@if helm template coder-policy charts/coder-policy -f charts/coder-policy/ci/values.yaml \
+		--set-string 'config.logoutCSRFSecret=short' >/dev/null 2>&1; then \
+		echo "short config.logoutCSRFSecret was unexpectedly accepted" >&2; \
 		exit 1; \
 	fi
 

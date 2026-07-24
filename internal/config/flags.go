@@ -26,6 +26,7 @@ func RegisterFlags(flags *pflag.FlagSet) {
 	flags.String("wildcard-access-host", "", "Wildcard application host, for example *.apps.example.com or *-apps.example.com")
 	flags.String("admin-usernames", "", "Comma-separated canonical Coder usernames exempt from workspace restrictions")
 	flags.String("allowed-usernames", "", "Comma-separated canonical Coder usernames allowed to access Coder")
+	flags.String("logout-csrf-secret", "", "Shared secret used to sign browser logout requests")
 	flags.String("expected-version-prefix", "", "Required Coder version prefix, for example v2.35.")
 	flags.String("listen-address", defaultListenAddress, "Proxy listen address")
 	flags.String("health-listen-address", defaultHealthListenAddress, "Health server listen address")

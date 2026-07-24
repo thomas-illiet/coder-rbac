@@ -40,6 +40,7 @@ func Load(v *viper.Viper) (Config, error) {
 		WildcardAccessHost:     wildcardHost,
 		AdminUsernames:         adminUsernames,
 		AllowedUsernames:       allowedUsernames,
+		LogoutCSRFSecret:       strings.TrimSpace(v.GetString("logout-csrf-secret")),
 		ExpectedVersionPrefix:  strings.TrimSpace(v.GetString("expected-version-prefix")),
 		ListenAddress:          strings.TrimSpace(v.GetString("listen-address")),
 		HealthListenAddress:    strings.TrimSpace(v.GetString("health-listen-address")),

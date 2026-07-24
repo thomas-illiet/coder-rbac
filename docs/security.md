@@ -97,9 +97,19 @@ Coder remains responsible for authentication. Auxiliary API calls copy only
 `Authorization`, `Coder-Session-Token`, and `Cookie`.
 
 The themed denial page does not clear cookies itself. Its **Change account**
-form submits to the main public host, where the proxy invokes Coder's native
-logout endpoint. Coder revokes the session and application tokens and emits the
-cookie deletion; the proxy redirects only after that operation succeeds.
+form submits a five-minute signed token to the main public host. The proxy
+rejects missing, expired, or invalid tokens before contacting Coder. For a valid
+form, it copies the HttpOnly Coder session cookie into the matching
+`Coder-Session-Token` header, invokes Coder's native logout endpoint, preserves
+Coder's cookie deletion, and redirects only after session and application-token
+revocation succeeds. This matching cookie/header mechanism is the native Coder
+CSRF exemption for server-originated header authentication.
+
+`CODER_POLICY_LOGOUT_CSRF_SECRET` signs the form token. Helm requires a
+high-entropy `config.logoutCSRFSecret` for multiple replicas and stores it in the
+release Secret. Direct multi-replica deployments must provide the same value to
+every replica; using independent process-local defaults causes valid forms to
+fail when requests cross replicas.
 
 The reverse proxy rebuilds `X-Forwarded-*` headers through Go's
 `ProxyRequest.SetXForwarded`. It preserves the original `Host` for wildcard

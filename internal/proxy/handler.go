@@ -2,6 +2,7 @@
 package proxy
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -13,17 +14,29 @@ import (
 
 // Handler enforces host, version, and user policies before forwarding requests.
 type Handler struct {
-	classifier *HostClassifier
-	policy     *Policy
-	gate       *versiongate.Gate
-	upstream   *httputil.ReverseProxy
-	logger     *slog.Logger
-	metrics    *Metrics
+	classifier    *HostClassifier
+	policy        *Policy
+	gate          *versiongate.Gate
+	upstream      *httputil.ReverseProxy
+	logger        *slog.Logger
+	metrics       *Metrics
+	logoutCSRFKey []byte
 }
 
 // NewHandler creates the HTTP handler that protects the upstream reverse proxy.
-func NewHandler(classifier *HostClassifier, policy *Policy, gate *versiongate.Gate, upstream *httputil.ReverseProxy, logger *slog.Logger, metrics *Metrics) *Handler {
-	return &Handler{classifier: classifier, policy: policy, gate: gate, upstream: upstream, logger: logger, metrics: metrics}
+func NewHandler(classifier *HostClassifier, policy *Policy, gate *versiongate.Gate, upstream *httputil.ReverseProxy, logger *slog.Logger, metrics *Metrics, logoutCSRFKey []byte) *Handler {
+	if len(logoutCSRFKey) == 0 {
+		logoutCSRFKey = []byte(rand.Text())
+	}
+	return &Handler{
+		classifier:    classifier,
+		policy:        policy,
+		gate:          gate,
+		upstream:      upstream,
+		logger:        logger,
+		metrics:       metrics,
+		logoutCSRFKey: append([]byte(nil), logoutCSRFKey...),
+	}
 }
 
 // ServeHTTP validates the request and forwards it only when every policy allows it.
@@ -63,8 +76,9 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, request *http.Request)
 		}
 	}
 	if kind == HostMain && browserLogoutPath(request.Method, normalizedPath) {
-		outcome = "forwarded"
-		h.logoutAndRedirect(response, request)
+		if h.logoutAndRedirect(response, request) {
+			outcome = "forwarded"
+		}
 		return
 	}
 	if kind == HostMain && admissionExemptPath(request.Method, normalizedPath) {
@@ -93,7 +107,8 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, request *http.Request)
 func (h *Handler) reject(response http.ResponseWriter, request *http.Request, decision Decision) {
 	h.metrics.observeRejection(decision.Code)
 	if decision.Code == "user_access_forbidden" && acceptsHTML(request) {
-		if err := writeAccessDenied(response, request, h.classifier.publicURL); err == nil {
+		csrfToken := h.newLogoutCSRFToken(time.Now())
+		if err := writeAccessDenied(response, request, h.classifier.publicURL, csrfToken); err == nil {
 			return
 		} else {
 			h.logger.Error("render access denied page", "error", err)

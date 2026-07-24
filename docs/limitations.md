@@ -141,6 +141,8 @@ The proxy is stateless and supports multiple replicas. However:
 - each replica performs its own version check;
 - long-lived connections depend on Ingress and load-balancer behavior;
 - replicas do not coordinate;
+- all multi-replica deployments must share `CODER_POLICY_LOGOUT_CSRF_SECRET`;
+  the Helm chart requires this value when `replicaCount` is greater than one;
 - overall availability still depends on Coder and its storage.
 
 ## Immutable configuration

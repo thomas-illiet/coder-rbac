@@ -24,6 +24,7 @@ their environment equivalents use underscores.
 | `CODER_POLICY_WILDCARD_ACCESS_HOST` | `--wildcard-access-host` | host | — | Yes | `*.example.com` or `*-example.com` form without a scheme or port |
 | `CODER_POLICY_ADMIN_USERNAMES` | `--admin-usernames` | username CSV | empty | No | Admitted administrators; exact, case-sensitive canonical usernames |
 | `CODER_POLICY_ALLOWED_USERNAMES` | `--allowed-usernames` | username CSV | empty | No | Admitted standard users; exact, case-sensitive canonical usernames |
+| `CODER_POLICY_LOGOUT_CSRF_SECRET` | `--logout-csrf-secret` | secret | process-local random | No | At least 32 characters when set; required and shared across multiple replicas |
 | `CODER_POLICY_EXPECTED_VERSION_PREFIX` | `--expected-version-prefix` | string | — | Yes | Non-empty and starts with `v` |
 | `CODER_POLICY_LISTEN_ADDRESS` | `--listen-address` | host:port | `:8080` | No | Valid address with a port distinct from the other listeners |
 | `CODER_POLICY_HEALTH_LISTEN_ADDRESS` | `--health-listen-address` | host:port | `:8081` | No | Valid address with a distinct port |
@@ -43,6 +44,7 @@ export CODER_POLICY_PUBLIC_URL=https://coder.example.com
 export CODER_POLICY_WILDCARD_ACCESS_HOST='*.apps.example.com'
 export CODER_POLICY_ADMIN_USERNAMES='platform-admin,automation'
 export CODER_POLICY_ALLOWED_USERNAMES='developer,contractor'
+export CODER_POLICY_LOGOUT_CSRF_SECRET='replace-with-at-least-32-random-characters'
 export CODER_POLICY_EXPECTED_VERSION_PREFIX='v2.35.'
 export CODER_POLICY_LISTEN_ADDRESS=':8080'
 export CODER_POLICY_HEALTH_LISTEN_ADDRESS=':8081'
@@ -60,11 +62,17 @@ coder-policy serve \
   --wildcard-access-host='*.apps.example.com' \
   --admin-usernames='platform-admin,automation' \
   --allowed-usernames='developer,contractor' \
+  --logout-csrf-secret='replace-with-at-least-32-random-characters' \
   --expected-version-prefix='v2.35.' \
   --listen-address=:8080 \
   --health-listen-address=:8081 \
   --metrics-listen-address=:9090
 ```
+
+Helm requires `config.logoutCSRFSecret` when `replicaCount` is greater than one
+and stores it in the release Secret. All multi-replica deployments must provide
+the same high-entropy value to every replica. A single replica may omit the
+setting and use its process-local random default.
 
 ## Related Coder URLs
 

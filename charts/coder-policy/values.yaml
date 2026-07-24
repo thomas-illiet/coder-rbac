@@ -56,6 +56,9 @@ config:
   # Canonical standard-user names that may access Coder but remain subject to
   # workspace restrictions. Matching is exact and case-sensitive for both lists.
   allowedUsernames: []
+  # Shared browser-logout signing secret. Required with multiple replicas and
+  # must contain at least 32 high-entropy characters.
+  logoutCSRFSecret: ""
   # Required prefix for the Coder version reported by /api/v2/buildinfo.
   expectedVersionPrefix: "v2.35."
   # Interval between compatibility checks after startup.

@@ -45,7 +45,7 @@ func newRuntime(cfg config.Config, logger *slog.Logger) *runtime {
 	classifier := proxyhandler.NewHostClassifier(cfg.PublicURL, cfg.WildcardAccessHost)
 	policy := proxyhandler.NewPolicy(coderClient, cfg.AdminUsernames, cfg.AllowedUsernames, cfg.MaxInspectionBodyBytes)
 	registry, proxyMetrics := newMetricsRegistry(gate)
-	handler := proxyhandler.NewHandler(classifier, policy, gate, reverseProxy, logger, proxyMetrics)
+	handler := proxyhandler.NewHandler(classifier, policy, gate, reverseProxy, logger, proxyMetrics, []byte(cfg.LogoutCSRFSecret))
 
 	return &runtime{
 		gate:                  gate,

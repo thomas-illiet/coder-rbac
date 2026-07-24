@@ -16,6 +16,7 @@ type Config struct {
 	WildcardAccessHost     string
 	AdminUsernames         map[string]struct{}
 	AllowedUsernames       map[string]struct{}
+	LogoutCSRFSecret       string
 	ExpectedVersionPrefix  string
 	ListenAddress          string
 	HealthListenAddress    string

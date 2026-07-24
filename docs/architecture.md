@@ -51,9 +51,10 @@ can serve its login flow. Verified users must be in the administrator or
 allowed list before forwarding.
 
 The themed denial page submits **Change account** to the main-host-only
-`POST /_coder-policy/logout` route. The proxy rewrites it to Coder's native
-logout endpoint, preserves cookie deletion, and redirects to `/login` after
-successful server-side revocation.
+`POST /_coder-policy/logout` route with a short-lived signed token. After
+validating that token, the proxy supplies matching cookie/header authentication
+to Coder's native logout endpoint, preserves cookie deletion, and redirects to
+`/login` after successful server-side revocation.
 
 ### Application wildcard
 

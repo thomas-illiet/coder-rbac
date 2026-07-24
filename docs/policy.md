@@ -28,11 +28,12 @@ canonical user through `/api/v2/users/me` before forwarding:
 - any other identity failure receives `503 identity_unavailable`.
 
 Native password or SSO authentication can therefore complete before the next
-authenticated request is denied. The proxy does not issue or revoke Coder
-sessions. Wildcard control-plane paths remain hidden with `404` before admission
-is evaluated. The main host keeps the native login, logout, password reset,
-OAuth/OIDC, OTP, authentication-method, and public `/assets` routes
-reachable so a denied browser session can switch accounts.
+authenticated request is denied. The proxy does not issue Coder sessions and
+revokes one only through the explicit **Change account** flow. Wildcard
+control-plane paths remain hidden with `404` before admission is evaluated. The
+main host keeps the native login, logout, password reset, OAuth/OIDC, OTP,
+authentication-method, and public `/assets` routes reachable so a denied
+browser session can switch accounts.
 
 ## Operation matrix
 
@@ -160,12 +161,15 @@ non-cacheable. Other policy decisions retain the JSON response even when the
 client accepts HTML.
 
 The page's **Change account** form posts to `/_coder-policy/logout` on the main
-public URL. The proxy relays that request to Coder's native
-`POST /api/v2/users/logout` endpoint, which deletes the server-side session,
-expires its browser cookie, and invalidates application tokens. The proxy
-preserves Coder's `Set-Cookie` headers and redirects to `/login` with `303` only
-after a successful logout. A failed logout response is returned unchanged and
-is never hidden by a login redirect.
+public URL with a five-minute signed CSRF token. After validating that token,
+the proxy copies the browser's Coder session cookie into the matching
+`Coder-Session-Token` header and relays the request to Coder's native
+`POST /api/v2/users/logout` endpoint. Coder then validates the matching
+cookie/header authentication, deletes the server-side session, expires its
+browser cookie, and invalidates application tokens. The proxy preserves Coder's
+`Set-Cookie` headers and redirects to `/login` with `303` only after a successful
+logout. Invalid CSRF requests never reach Coder, and a failed native logout is
+returned unchanged instead of being hidden by a login redirect.
 
 | Status | Code | Primary cause |
 | --- | --- | --- |
@@ -174,6 +178,7 @@ is never hidden by a login redirect.
 | `400` | `invalid_workspace` | Invalid workspace UUID |
 | `400` | `invalid_template_preset` | Preset is absent from the target version |
 | `401` or `403` | `authentication_required` | Coder rejects the supplied identity |
+| `403` | `invalid_logout_csrf` | Missing, expired, or invalid account-change form token |
 | `403` | `user_access_forbidden` | Authenticated username is in neither configured list |
 | `403` | `user_password_update_forbidden` | User password update |
 | `403` | `user_profile_update_forbidden` | Username, display name, or avatar update |

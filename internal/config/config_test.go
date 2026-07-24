@@ -14,6 +14,7 @@ func TestLoadEnvironmentAndFlagPrecedence(t *testing.T) {
 	t.Setenv("CODER_POLICY_WILDCARD_ACCESS_HOST", "*.apps.example.com")
 	t.Setenv("CODER_POLICY_ADMIN_USERNAMES", "platform-admin, automation, platform-admin")
 	t.Setenv("CODER_POLICY_ALLOWED_USERNAMES", "developer, developer")
+	t.Setenv("CODER_POLICY_LOGOUT_CSRF_SECRET", "0123456789abcdef0123456789abcdef")
 	t.Setenv("CODER_POLICY_EXPECTED_VERSION_PREFIX", "v2.35.")
 	t.Setenv("CODER_POLICY_UPSTREAM_TIMEOUT", "7s")
 	t.Setenv("CODER_POLICY_METRICS_LISTEN_ADDRESS", "127.0.0.1:9191")
@@ -48,6 +49,9 @@ func TestLoadEnvironmentAndFlagPrecedence(t *testing.T) {
 	}
 	if _, ok := cfg.AllowedUsernames["developer"]; !ok || len(cfg.AllowedUsernames) != 1 {
 		t.Errorf("allowed usernames = %#v, want developer", cfg.AllowedUsernames)
+	}
+	if cfg.LogoutCSRFSecret != "0123456789abcdef0123456789abcdef" {
+		t.Fatalf("logout CSRF secret = %q", cfg.LogoutCSRFSecret)
 	}
 	if cfg.UpstreamTimeout != 7*time.Second {
 		t.Fatalf("upstream timeout = %s, want 7s", cfg.UpstreamTimeout)
@@ -86,6 +90,9 @@ func TestRegisterFlagsUsesSharedDefaults(t *testing.T) {
 	if flags.Lookup("allowed-usernames") == nil {
 		t.Fatal("allowed-usernames flag is not registered")
 	}
+	if flags.Lookup("logout-csrf-secret") == nil {
+		t.Fatal("logout-csrf-secret flag is not registered")
+	}
 	if flags.Lookup("allowed-user-ids") != nil {
 		t.Fatal("legacy allowed-user-ids flag is still registered")
 	}
@@ -106,6 +113,22 @@ func TestRegisterFlagsUsesSharedDefaults(t *testing.T) {
 	}
 	if cfg.VersionCheckInterval != defaultVersionCheckInterval || cfg.UpstreamTimeout != defaultUpstreamTimeout || cfg.ShutdownTimeout != defaultShutdownTimeout {
 		t.Fatalf("duration defaults = %s, %s, %s", cfg.VersionCheckInterval, cfg.UpstreamTimeout, cfg.ShutdownTimeout)
+	}
+}
+
+// TestLoadRejectsShortLogoutCSRFSecret verifies configured shared keys have adequate entropy.
+func TestLoadRejectsShortLogoutCSRFSecret(t *testing.T) {
+	v, err := NewViper(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v.Set("upstream-url", "http://coder:3000")
+	v.Set("public-url", "https://coder.example.com")
+	v.Set("wildcard-access-host", "*.apps.example.com")
+	v.Set("logout-csrf-secret", "too-short")
+	v.Set("expected-version-prefix", "v2.35.")
+	if _, err := Load(v); err == nil || err.Error() != "logout-csrf-secret must contain at least 32 characters" {
+		t.Fatalf("error = %v", err)
 	}
 }
 
