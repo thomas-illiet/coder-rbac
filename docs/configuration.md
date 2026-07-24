@@ -21,7 +21,7 @@ their environment equivalents use underscores.
 | --- | --- | --- | --- | --- | --- |
 | `CODER_POLICY_UPSTREAM_URL` | `--upstream-url` | URL | — | Yes | Absolute `http` or `https` URL without credentials, query, fragment, or path |
 | `CODER_POLICY_PUBLIC_URL` | `--public-url` | URL | — | Yes | Same validation; must be the public URL served by the proxy |
-| `CODER_POLICY_WILDCARD_ACCESS_HOST` | `--wildcard-access-host` | host | — | Yes | `*.example.com` form without a scheme or port |
+| `CODER_POLICY_WILDCARD_ACCESS_HOST` | `--wildcard-access-host` | host | — | Yes | `*.example.com` or `*-example.com` form without a scheme or port |
 | `CODER_POLICY_ADMIN_USERNAMES` | `--admin-usernames` | username CSV | empty | No | Admitted administrators; exact, case-sensitive canonical usernames |
 | `CODER_POLICY_ALLOWED_USERNAMES` | `--allowed-usernames` | username CSV | empty | No | Admitted standard users; exact, case-sensitive canonical usernames |
 | `CODER_POLICY_EXPECTED_VERSION_PREFIX` | `--expected-version-prefix` | string | — | Yes | Non-empty and starts with `v` |
@@ -76,6 +76,11 @@ Coder and proxy settings must remain consistent:
 | Coder `CODER_WILDCARD_ACCESS_URL` | Same host as `CODER_POLICY_WILDCARD_ACCESS_HOST` |
 | Workspace `CODER_URL` | Same URL as `CODER_POLICY_PUBLIC_URL` |
 | Proxy `CODER_POLICY_UPSTREAM_URL` | Direct internal `coderd` URL, unreachable from workspaces |
+
+The wildcard may start with `*.` to match a dedicated subdomain or with `*-`
+to match a suffix in the same DNS label. For example,
+`*-apps.example.com` matches `code--workspace--user-apps.example.com`, but not
+`apps.example.com`.
 
 For example:
 

@@ -109,22 +109,30 @@ func TestRegisterFlagsUsesSharedDefaults(t *testing.T) {
 	}
 }
 
-// TestLoadNormalizesWildcardHost verifies wildcard host normalization during loading.
+// TestLoadNormalizesWildcardHost verifies supported wildcard host forms are normalized during loading.
 func TestLoadNormalizesWildcardHost(t *testing.T) {
-	v, err := NewViper(nil)
-	if err != nil {
-		t.Fatal(err)
+	tests := map[string]string{
+		" *.APPS.EXAMPLE.COM. ": "*.apps.example.com",
+		" *-APPS.EXAMPLE.COM. ": "*-apps.example.com",
 	}
-	v.Set("upstream-url", "http://coder:3000")
-	v.Set("public-url", "https://coder.example.com")
-	v.Set("wildcard-access-host", " *.APPS.EXAMPLE.COM. ")
-	v.Set("expected-version-prefix", "v2.35.")
-	cfg, err := Load(v)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cfg.WildcardAccessHost != "*.apps.example.com" {
-		t.Fatalf("wildcard host = %q", cfg.WildcardAccessHost)
+	for input, expected := range tests {
+		t.Run(expected, func(t *testing.T) {
+			v, err := NewViper(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			v.Set("upstream-url", "http://coder:3000")
+			v.Set("public-url", "https://coder.example.com")
+			v.Set("wildcard-access-host", input)
+			v.Set("expected-version-prefix", "v2.35.")
+			cfg, err := Load(v)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.WildcardAccessHost != expected {
+				t.Fatalf("wildcard host = %q, want %q", cfg.WildcardAccessHost, expected)
+			}
+		})
 	}
 }
 
@@ -153,6 +161,8 @@ func TestLoadRejectsInvalidSecurityConfiguration(t *testing.T) {
 	}{
 		{name: "missing version", wildcard: "*.apps.example.com", expected: ""},
 		{name: "non wildcard host", wildcard: "apps.example.com", expected: "v2.35."},
+		{name: "unsupported wildcard separator", wildcard: "*apps.example.com", expected: "v2.35."},
+		{name: "embedded wildcard", wildcard: "*-apps.*.example.com", expected: "v2.35."},
 		{name: "wildcard port", wildcard: "*.apps.example.com:443", expected: "v2.35."},
 	}
 	for _, test := range tests {

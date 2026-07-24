@@ -29,7 +29,8 @@ rules, is documented in [Authorization policy](docs/policy.md).
 > This accepted risk is covered by a regression test.
 
 Application wildcard hosts hide `/api/v2`, `/cli-auth`, and `/setup` with a
-`404` response. Undeclared hosts receive `421`.
+`404` response. Both `*.apps.example.com` and `*-apps.example.com` wildcard
+forms are supported. Undeclared hosts receive `421`.
 
 ## Quick start
 

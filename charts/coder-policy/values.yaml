@@ -46,7 +46,9 @@ config:
   upstreamURL: ""
   # Public Coder URL served through coder-policy, including the scheme.
   publicURL: ""
-  # Application wildcard hostname in *.example.com form, without a scheme or port.
+  # Application wildcard hostname in *.example.com or *-example.com form,
+  # without a scheme or port. Kubernetes Ingress only accepts the *.example.com
+  # form; disable ingress.wildcard for *- and configure an external route.
   wildcardAccessHost: ""
   # Canonical Coder usernames that may access Coder and bypass all workspace
   # restrictions. Administrators are implicitly admitted without duplication.

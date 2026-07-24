@@ -78,11 +78,14 @@ func parseHTTPURL(name, raw string) (*url.URL, error) {
 	return parsed, nil
 }
 
-// normalizeWildcard validates and normalizes a wildcard hostname in *.example.com form.
+// normalizeWildcard validates and normalizes a wildcard hostname with a leading
+// "*." or "*-" pattern.
 func normalizeWildcard(raw string) (string, error) {
 	raw = hostutil.Normalize(raw)
-	if !strings.HasPrefix(raw, "*.") || len(raw) <= 2 || strings.Contains(raw[2:], "*") {
-		return "", fmt.Errorf("wildcard-access-host must use the form *.example.com")
+	if len(raw) <= 2 ||
+		(!strings.HasPrefix(raw, "*.") && !strings.HasPrefix(raw, "*-")) ||
+		strings.Contains(raw[1:], "*") {
+		return "", fmt.Errorf("wildcard-access-host must use the form *.example.com or *-example.com")
 	}
 	if strings.Contains(raw, ":") {
 		return "", fmt.Errorf("wildcard-access-host must not contain a port")

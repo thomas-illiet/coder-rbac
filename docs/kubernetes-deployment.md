@@ -73,6 +73,11 @@ helm upgrade --install coder-policy charts/coder-policy \
   --timeout 10m
 ```
 
+Kubernetes Ingress host rules only accept a wildcard as a complete leftmost
+label (`*.apps.example.com`). When using the supported
+`*-apps.example.com` form, disable `ingress.wildcard` and configure that route
+on an ingress controller or external proxy that supports suffix wildcards.
+
 ## Configure the official Coder chart
 
 The official Coder chart must not expose its own Ingress or public Service.

@@ -9,21 +9,46 @@ import (
 // TestHostClassifier verifies public, wildcard, and unknown host classification.
 func TestHostClassifier(t *testing.T) {
 	publicURL, _ := url.Parse("https://coder.example.com")
-	classifier := NewHostClassifier(publicURL, "*.apps.example.com")
-	tests := map[string]HostKind{
-		"coder.example.com":                         HostMain,
-		"coder.example.com:443":                     HostMain,
-		"coder-policy":                              HostUnknown,
-		"coder-policy.coder.svc.cluster.local:8080": HostUnknown,
-		"app--workspace--user.apps.example.com":     HostWildcard,
-		"app--workspace--user.apps.example.com:443": HostWildcard,
-		"apps.example.com":                          HostUnknown,
-		"evil.example.com":                          HostUnknown,
+	tests := []struct {
+		name     string
+		wildcard string
+		hosts    map[string]HostKind
+	}{
+		{
+			name:     "dot wildcard",
+			wildcard: "*.apps.example.com",
+			hosts: map[string]HostKind{
+				"coder.example.com":                         HostMain,
+				"coder.example.com:443":                     HostMain,
+				"coder-policy":                              HostUnknown,
+				"coder-policy.coder.svc.cluster.local:8080": HostUnknown,
+				"app--workspace--user.apps.example.com":     HostWildcard,
+				"app--workspace--user.apps.example.com:443": HostWildcard,
+				"apps.example.com":                          HostUnknown,
+				"evil.example.com":                          HostUnknown,
+			},
+		},
+		{
+			name:     "hyphen wildcard",
+			wildcard: "*-apps.example.com",
+			hosts: map[string]HostKind{
+				"coder.example.com":                         HostMain,
+				"app--workspace--user-apps.example.com":     HostWildcard,
+				"app--workspace--user-apps.example.com:443": HostWildcard,
+				"apps.example.com":                          HostUnknown,
+				"not-apps.example.com.evil.example":         HostUnknown,
+			},
+		},
 	}
-	for host, expected := range tests {
-		if got := classifier.Classify(host); got != expected {
-			t.Errorf("Classify(%q) = %d, want %d", host, got, expected)
-		}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			classifier := NewHostClassifier(publicURL, test.wildcard)
+			for host, expected := range test.hosts {
+				if got := classifier.Classify(host); got != expected {
+					t.Errorf("Classify(%q) = %d, want %d", host, got, expected)
+				}
+			}
+		})
 	}
 }
 

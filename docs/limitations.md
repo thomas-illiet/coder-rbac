@@ -125,9 +125,11 @@ The chart policies:
 
 ## Wildcard hosts
 
-The proxy recognizes a non-empty subdomain ending in the configured wildcard
-suffix. Coder remains responsible for validating the exact application
-subdomain format and access permissions.
+The proxy recognizes a non-empty hostname prefix ending in the suffix configured
+with either `*.` or `*-`. Coder remains responsible for validating the exact
+application hostname format and access permissions. Kubernetes Ingress accepts
+only the `*.` form in `spec.rules.host`; `*-` requires an external route that
+supports suffix wildcards.
 
 `/api/v2`, `/cli-auth`, and `/setup` are hidden, but the proxy does not inspect
 the content of each workspace application.
