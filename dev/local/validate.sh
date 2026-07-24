@@ -59,6 +59,17 @@ if [ "$blocked_status" != "403" ] || [ "$(jq -r '.code // empty' /tmp/coder-poli
 fi
 echo "PASS: unlisted user is denied after native Coder authentication (HTTP 403)"
 
+blocked_browser_status=$(curl --silent --output /tmp/coder-policy-local-access-denied.html --write-out '%{http_code}' \
+  --header 'Accept: text/html' \
+  --header "Coder-Session-Token: $blocked_session_token" \
+  "$base_url/")
+if [ "$blocked_browser_status" != "403" ] || ! grep -Fq 'data-error-page="403"' /tmp/coder-policy-local-access-denied.html; then
+  echo "blocked browser request did not receive the themed access-denied page (HTTP $blocked_browser_status)" >&2
+  cat /tmp/coder-policy-local-access-denied.html >&2
+  exit 1
+fi
+echo "PASS: unlisted browser session receives the themed access-denied page (HTTP 403)"
+
 switch_login_response=$(curl --fail --silent \
   --request POST \
   --header 'Content-Type: application/json' \

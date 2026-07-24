@@ -36,6 +36,7 @@ func (k HostKind) String() string {
 
 // HostClassifier classifies normalized request hosts against configured endpoints.
 type HostClassifier struct {
+	publicURL      string
 	publicHost     string
 	publicHostname string
 	wildcardSuffix string
@@ -44,6 +45,7 @@ type HostClassifier struct {
 // NewHostClassifier creates a classifier for the public and wildcard hosts.
 func NewHostClassifier(publicURL *url.URL, wildcard string) *HostClassifier {
 	return &HostClassifier{
+		publicURL:      strings.TrimSuffix(publicURL.String(), "/"),
 		publicHost:     hostutil.Normalize(publicURL.Host),
 		publicHostname: hostutil.WithoutPort(publicURL.Host),
 		wildcardSuffix: strings.TrimPrefix(hostutil.Normalize(wildcard), "*"),

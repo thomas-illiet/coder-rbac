@@ -38,14 +38,14 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, request *http.Request)
 	if ready, _, err := h.gate.Ready(); !ready {
 		h.logger.Warn("request rejected while version gate is unready", "method", request.Method, "host", request.Host, "error", err)
 		decision := Decision{Status: http.StatusServiceUnavailable, Code: "coder_version_unavailable", Message: "The Coder version policy is not ready."}
-		h.reject(response, decision)
+		h.reject(response, request, decision)
 		return
 	}
 
 	normalizedPath, err := NormalizePath(request)
 	if err != nil {
 		decision := Decision{Status: http.StatusBadRequest, Code: "invalid_path", Message: "The request path is invalid.", Detail: err.Error()}
-		h.reject(response, decision)
+		h.reject(response, request, decision)
 		return
 	}
 	kind := h.classifier.Classify(request.Host)
@@ -53,7 +53,7 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, request *http.Request)
 	switch kind {
 	case HostUnknown:
 		decision := Decision{Status: http.StatusMisdirectedRequest, Code: "unknown_host", Message: "The requested host is not served by this proxy."}
-		h.reject(response, decision)
+		h.reject(response, request, decision)
 		return
 	case HostWildcard:
 		if wildcardControlPath(normalizedPath) {
@@ -70,13 +70,13 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, request *http.Request)
 
 	access, decision := h.policy.Authorize(request.Context(), request)
 	if decision.Blocked() {
-		h.reject(response, decision)
+		h.reject(response, request, decision)
 		return
 	}
 	if kind == HostMain {
 		decision = h.policy.Evaluate(request.Context(), request, normalizedPath, access)
 		if decision.Blocked() {
-			h.reject(response, decision)
+			h.reject(response, request, decision)
 			return
 		}
 	}
@@ -85,8 +85,15 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, request *http.Request)
 }
 
 // reject records and writes a structured policy rejection.
-func (h *Handler) reject(response http.ResponseWriter, decision Decision) {
+func (h *Handler) reject(response http.ResponseWriter, request *http.Request, decision Decision) {
 	h.metrics.observeRejection(decision.Code)
+	if decision.Code == "user_access_forbidden" && acceptsHTML(request) {
+		if err := writeAccessDenied(response, request, h.classifier.publicURL+"/login"); err == nil {
+			return
+		} else {
+			h.logger.Error("render access denied page", "error", err)
+		}
+	}
 	writeDecision(response, decision, h.logger)
 }
 

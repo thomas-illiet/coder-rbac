@@ -140,7 +140,8 @@ path separators.
 
 ## Rejection responses
 
-Policy rejections use a stable JSON shape:
+Policy rejections use a stable JSON shape for API, CLI, and other non-browser
+requests:
 
 ```json
 {
@@ -149,8 +150,14 @@ Policy rejections use a stable JSON shape:
 }
 ```
 
-Responses set `Content-Type: application/json; charset=utf-8` and
+These responses set `Content-Type: application/json; charset=utf-8` and
 `Cache-Control: no-store`.
+
+A `GET` or `HEAD` request that explicitly accepts `text/html` receives the
+Code Studio-themed `403` page when its decision is `user_access_forbidden`.
+The page is embedded in the proxy binary, uses no external assets, and remains
+non-cacheable. Other policy decisions retain the JSON response even when the
+client accepts HTML.
 
 | Status | Code | Primary cause |
 | --- | --- | --- |

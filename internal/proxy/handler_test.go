@@ -123,28 +123,34 @@ func TestHandlerEnforcesUserAdmissionAcrossHosts(t *testing.T) {
 	defer server.Close()
 
 	tests := []struct {
-		name   string
-		host   string
-		method string
-		path   string
-		token  string
-		status int
-		code   string
+		name        string
+		host        string
+		method      string
+		path        string
+		token       string
+		accept      string
+		status      int
+		code        string
+		contentType string
+		body        string
 	}{
 		{name: "anonymous login", host: "coder.example.com", method: http.MethodGet, path: "/login", status: http.StatusOK},
 		{name: "allowed main", host: "coder.example.com", method: http.MethodGet, path: "/dashboard", token: "allowed-token", status: http.StatusOK},
 		{name: "allowed remains restricted", host: "coder.example.com", method: http.MethodPatch, path: "/api/v2/workspaces/" + testWorkspaceID.String(), token: "allowed-token", status: http.StatusForbidden, code: "workspace_rename_forbidden"},
 		{name: "allowed cannot update password", host: "coder.example.com", method: http.MethodPut, path: "/api/v2/users/me/password", token: "allowed-token", status: http.StatusForbidden, code: "user_password_update_forbidden"},
 		{name: "allowed cannot update profile", host: "coder.example.com", method: http.MethodPut, path: "/api/v2/users/me/profile", token: "allowed-token", status: http.StatusForbidden, code: "user_profile_update_forbidden"},
+		{name: "blocked action remains JSON when HTML is accepted", host: "coder.example.com", method: http.MethodPatch, path: "/api/v2/workspaces/" + testWorkspaceID.String(), token: "allowed-token", accept: "text/html", status: http.StatusForbidden, code: "workspace_rename_forbidden", contentType: "application/json; charset=utf-8"},
 		{name: "admin bypasses policy", host: "coder.example.com", method: http.MethodPatch, path: "/api/v2/workspaces/" + testWorkspaceID.String(), token: "admin-token", status: http.StatusOK},
 		{name: "admin may reach profile update", host: "coder.example.com", method: http.MethodPut, path: "/api/v2/users/me/profile", token: "admin-token", status: http.StatusOK},
 		{name: "blocked main", host: "coder.example.com", method: http.MethodGet, path: "/dashboard", token: "blocked-token", status: http.StatusForbidden, code: "user_access_forbidden"},
+		{name: "blocked browser receives themed page", host: "coder.example.com", method: http.MethodGet, path: "/dashboard", token: "blocked-token", accept: "text/html,application/xhtml+xml", status: http.StatusForbidden, contentType: "text/html; charset=utf-8", body: `data-error-page="403"`},
 		{name: "blocked session may reopen login", host: "coder.example.com", method: http.MethodGet, path: "/login", token: "blocked-token", status: http.StatusOK},
 		{name: "blocked session may submit another login", host: "coder.example.com", method: http.MethodPost, path: "/api/v2/users/login", token: "blocked-token", status: http.StatusOK},
 		{name: "blocked session may load login assets", host: "coder.example.com", method: http.MethodGet, path: "/assets/index.js", token: "blocked-token", status: http.StatusOK},
 		{name: "internal service rejected", host: "coder-policy:8080", method: http.MethodGet, path: "/api/v2/workspaces", token: "blocked-token", status: http.StatusMisdirectedRequest, code: "unknown_host"},
 		{name: "allowed wildcard", host: "code--dev--alice.apps.example.com", method: http.MethodGet, path: "/", token: "allowed-token", status: http.StatusOK},
 		{name: "blocked wildcard", host: "code--dev--alice.apps.example.com", method: http.MethodGet, path: "/", token: "blocked-token", status: http.StatusForbidden, code: "user_access_forbidden"},
+		{name: "blocked wildcard browser uses main login", host: "code--dev--alice.apps.example.com", method: http.MethodGet, path: "/", token: "blocked-token", accept: "text/html", status: http.StatusForbidden, contentType: "text/html; charset=utf-8", body: `href="https://coder.example.com/login"`},
 		{name: "wildcard control path stays hidden", host: "code--dev--alice.apps.example.com", method: http.MethodGet, path: "/api/v2/users/me", token: "blocked-token", status: http.StatusNotFound},
 		{name: "identity failure", host: "coder.example.com", method: http.MethodGet, path: "/dashboard", token: "failure-token", status: http.StatusServiceUnavailable, code: "identity_unavailable"},
 	}
@@ -158,6 +164,9 @@ func TestHandlerEnforcesUserAdmissionAcrossHosts(t *testing.T) {
 			if test.token != "" {
 				request.Header.Set("Coder-Session-Token", test.token)
 			}
+			if test.accept != "" {
+				request.Header.Set("Accept", test.accept)
+			}
 			response, err := server.Client().Do(request)
 			if err != nil {
 				t.Fatal(err)
@@ -170,7 +179,52 @@ func TestHandlerEnforcesUserAdmissionAcrossHosts(t *testing.T) {
 			if test.code != "" && !strings.Contains(string(body), `"code":"`+test.code+`"`) {
 				t.Fatalf("body %q does not contain code %q", body, test.code)
 			}
+			if test.contentType != "" && response.Header.Get("Content-Type") != test.contentType {
+				t.Fatalf("Content-Type = %q, want %q", response.Header.Get("Content-Type"), test.contentType)
+			}
+			if test.body != "" && !strings.Contains(string(body), test.body) {
+				t.Fatalf("body %q does not contain %q", body, test.body)
+			}
 		})
+	}
+}
+
+// TestAccessDeniedPageEscapesRequestData verifies the embedded page is safe and self-contained.
+func TestAccessDeniedPageEscapesRequestData(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "https://coder.example.com/dashboard?tab=workspaces", nil)
+	request.Host = `coder.example.com"><script>alert(1)</script>`
+	response := httptest.NewRecorder()
+
+	if err := writeAccessDenied(response, request, "https://coder.example.com/login"); err != nil {
+		t.Fatal(err)
+	}
+	body := response.Body.String()
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403", response.Code)
+	}
+	if response.Header().Get("Content-Type") != "text/html; charset=utf-8" {
+		t.Fatalf("Content-Type = %q", response.Header().Get("Content-Type"))
+	}
+	if response.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("Cache-Control = %q", response.Header().Get("Cache-Control"))
+	}
+	if !strings.Contains(body, `data-error-page="403"`) || !strings.Contains(body, "Access denied.") {
+		t.Fatalf("body does not contain the themed access-denied page: %q", body)
+	}
+	if strings.Contains(body, "ZgotmplZ") || !strings.Contains(body, "--background: #0b0d10") {
+		t.Fatalf("embedded style is missing or unsafe: %q", body)
+	}
+	if strings.Contains(body, "<script>alert(1)</script>") {
+		t.Fatalf("request host was not escaped: %q", body)
+	}
+	if !strings.Contains(body, "coder.example.com&#34;&gt;&lt;script&gt;alert(1)&lt;/script&gt;") {
+		t.Fatalf("escaped request host is missing: %q", body)
+	}
+	if !strings.Contains(body, `href="/dashboard?tab=workspaces"`) {
+		t.Fatalf("retry URL is missing: %q", body)
+	}
+	if !strings.Contains(body, `href="https://coder.example.com/login"`) {
+		t.Fatalf("login URL is missing: %q", body)
 	}
 }
 

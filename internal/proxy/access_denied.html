@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en" data-error-page="403">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<meta name="robots" content="noindex, nofollow">
+		<meta name="theme-color" content="#0b0d10">
+		<title>403 — Access denied</title>
+		<style>{{.Style}}</style>
+	</head>
+	<body>
+		<div class="shell">
+			<header class="brand">
+				<span class="brand-mark">
+					<span class="logo" aria-hidden="true">&gt;_</span>
+					Code Studio
+				</span>
+				<span class="status">Access blocked</span>
+			</header>
+
+			<main>
+				<section class="panel" aria-labelledby="error-title">
+					<div class="message">
+						<p class="eyebrow">Access policy / 403</p>
+						<h1 id="error-title">Access denied.</h1>
+						<p class="lede">
+							This authenticated account is not authorized to access Code Studio.
+							Sign in with an approved account or contact your platform administrator.
+						</p>
+
+						<div class="host" aria-label="Requested hostname">
+							<span class="prompt" aria-hidden="true">$</span>
+							<span class="request-host">{{.Host}}</span>
+						</div>
+
+						<div class="actions">
+							<a class="button primary" href="{{.LoginURL}}">Change account</a>
+							<a class="button" href="{{.RetryURL}}">Try again</a>
+						</div>
+					</div>
+
+					<aside class="diagnostic" aria-label="Access diagnostics">
+						<p class="error-code" aria-hidden="true">403</p>
+						<ul class="trace">
+							<li><span>identity</span><strong>authenticated</strong></li>
+							<li><span>policy</span><strong>checked</strong></li>
+							<li><span>access</span><strong class="failed">denied</strong></li>
+						</ul>
+					</aside>
+				</section>
+			</main>
+
+			<footer class="footer">
+				<span>Code Studio // Policy</span>
+				<span>No request was forwarded to Coder</span>
+			</footer>
+		</div>
+	</body>
+</html>
